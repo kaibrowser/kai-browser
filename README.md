@@ -11,6 +11,52 @@ mkdir -p modules
 chmod +x kai_browser
 ./kai_browser
 ```
+## Usage
+
+### Starting Kai Browser
+After installation, launch the browser:
+```bash
+./kai_browser
+```
+
+### Creating Custom Extensions
+
+Kai Browser features an **AI-powered extension builder** that lets you create browser extensions using natural language—no coding required.
+
+#### Setup Your API Key
+1. Open the extension builder in Kai Browser
+2. Enter your AI API key in the AI setting tab (Gemini, Claude, OpenAI GPT.)
+3. Your API key is saved locally on your machine
+4. Select the Active Provider for the API Key you have saved
+
+#### Build Extensions with Natural Language
+To create an extension select the AI Generate tab, start your prompt with:
+```
+make a kai browser extension
+```
+**Examples:**
+- "make a kai browser extension that highlights all links in yellow"
+- "make a kai browser extension for dark mode toggle on any website"
+- "make a kai browser extension that counts words in text fields"
+- "make a kai browser extension to translate selected text to Spanish"
+  
+Click the "Generate extension with AI" button
+The AI will generate the extension code and install it automatically.
+
+#### Build Extensions with with the code editor
+- Select the code deitor tab
+- use the template of your choice
+- enter .py code
+- Click the Save Load Extension Button this will install it automatically.
+  
+#### Build Extensions manually
+- Create code in your code editor and drop the .py file into the modules folder the browser will install it automatically. 
+  
+
+### Managing Extensions
+- View active extensions in the manage tab
+- Enable/disable extensions as needed
+- Modify extensions by describing changes in natural language
 
 ### Requirements
 - Linux (tested on Ubuntu)
