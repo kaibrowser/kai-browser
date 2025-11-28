@@ -7,6 +7,7 @@ A Python-based browser where you can create custom extensions using natural lang
 ```bash
 git clone https://github.com/exfo999/kai-browser.git
 cd kai-browser/dist
+mkdir -p modules
 chmod +x kai_browser
 ./kai_browser
 ```
