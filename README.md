@@ -41,7 +41,8 @@ make a kai browser extension
 - "make a kai browser extension to translate selected text to Spanish"
   
 Click the "Generate extension with AI" button
-The AI will generate the extension code and install it automatically.
+The AI will generate the extension code. If the generation was a sucess the code will be displayed, click the save button to install it automatically.
+Using a premium AI API key will have better success at generating a complex extension. 
 
 #### Build Extensions with with the code editor
 - Select the code editor tab
