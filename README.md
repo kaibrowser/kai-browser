@@ -99,7 +99,7 @@ Kai Browser features an **AI-powered extension builder** that lets you create br
 - **Or** click the **Marketplace** button in the extensions dropdown menu within the browser
 
 ### Share Your Extensions
-- Upload your extensions at [kaibrowser.com/upload](https://kaibrowser.com/marketplace/upload))
+- Upload your extensions at [kaibrowser.com/upload](https://kaibrowser.com/upload)
 - Sign in to manage your uploaded extensions in **My Extensions**
 
 ---
