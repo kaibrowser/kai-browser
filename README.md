@@ -10,13 +10,13 @@ A Python-based browser where you can create custom extensions using natural lang
 ```bash
 # Extract the archive
 tar -xzf kai-browser-linux.tar.gz
-cd dist
+cd kai-browser
 
 # Make executable (if needed)
-chmod +x kai_browser
+chmod +x kai-browser
 
 # Run
-./kai_browser
+./kai-browser
 ```
 
 ### Requirements
