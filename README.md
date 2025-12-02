@@ -29,7 +29,7 @@ chmod +x kai-browser
 ### Starting Kai Browser
 After installation, launch the browser:
 ```bash
-./kai_browser
+./kai-browser
 ```
 
 ---
