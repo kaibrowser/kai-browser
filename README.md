@@ -138,6 +138,8 @@ To reset everything, delete the `~/.kai_browser/` folder.
 - Use "Fix with AI" when the error dialog appears
 - Ensure class name ends with `Module` or `Plugin`, or has an `activate` method
 - Use snake_case for file names (e.g., `my_extension.py`)
+- Verify PyQt6 syntax is correct
+- If you see an `ImportError`, install the missing package at system level and restart
 
 ### Common PyQt6 Issues
 
