@@ -81,6 +81,32 @@ Enable "Auto-fix errors" in the AI tab to have the AI automatically attempt to f
 3. Choose a template or write your own code
 4. Click **"Add Extension"** to install it
 
+**Quick Example:**
+```python
+from PyQt6.QtWidgets import QToolButton
+from PyQt6.QtCore import QUrl
+
+class MyPlugin:
+    def __init__(self, browser):
+        self.browser = browser
+        self.toolbar = browser.toolbar
+    
+    def activate(self):
+        button = QToolButton()
+        button.setText("🎯 My Button")
+        button.clicked.connect(self.on_click)
+        self.toolbar.addWidget(button)
+    
+    def on_click(self):
+        # Always use get_active_web_view() to access the current tab
+        web_view = self.browser.get_active_web_view()
+        if web_view:
+            url = web_view.url().toString()
+            print(f"Current URL: {url}")
+```
+
+> **Important:** Always use `browser.get_active_web_view()` to access the current tab, not `browser.browser` or `browser.web_view`.
+
 ---
 
 ### Method 3: Manual Installation
@@ -139,7 +165,7 @@ To reset everything, delete the `~/.kai_browser/` folder.
 - Ensure class name ends with `Module` or `Plugin`, or has an `activate` method
 - Use snake_case for file names (e.g., `my_extension.py`)
 - Verify PyQt6 syntax is correct
-- If you see an `ImportError`, install the missing package at system level and restart
+- If you see an `ImportError`, the browser will automatically prompt you to install the package. System-level packages will show the install command to run in your terminal, while other packages can be auto-installed to the dependencies folder through the dialog
 
 ### Common PyQt6 Issues
 
@@ -149,6 +175,18 @@ button.setPopupMode(PopupMode.InstantPopup)
 
 # CORRECT
 button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+```
+
+### Tab Access Issues
+
+```python
+# WRONG (deprecated)
+web_view = self.browser.browser
+web_view = self.browser_core.browser
+
+# CORRECT
+web_view = self.browser.get_active_web_view()
+web_view = self.browser_core.get_active_web_view()
 ```
 
 ### AI Generation Issues
