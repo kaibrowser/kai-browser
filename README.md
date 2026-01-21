@@ -2,7 +2,7 @@
 
 A Python-based browser where you can create custom extensions using natural language. Describe what you want, and AI builds it.
 
-> **Note:** The AI extension builder is still in early development and actively improving.
+> **Note:** The AI extension builder is still in early development and actively improving. Available AI providers: Gemini (free tier available), Claude (best results), and OpenAI.
 
 ## Installation
 
