@@ -175,6 +175,10 @@ button.setPopupMode(PopupMode.InstantPopup)
 
 # CORRECT
 button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+
+## Important PyQt6 Notes
+- `QAction` is imported from `PyQt6.QtGui` (not QtWidgets like in PyQt5)
+- Use full enum paths: `QToolButton.ToolButtonPopupMode.InstantPopup`
 ```
 
 ### Tab Access Issues
