@@ -4,6 +4,16 @@ A Python-based browser where you can create custom extensions using natural lang
 
 > **Note:** The AI extension builder is still in early development and actively improving. Available AI providers: Gemini (free tier available), Claude (best results), and OpenAI.
 
+## ⚠️ Safety Notice
+
+- AI-generated extensions run with full browser permissions
+- **Always review generated code before activating extensions**
+- Never include sensitive information (passwords, tokens) in AI prompts
+- Extensions are stored as Python files in `~/kaibrowser/modules/`
+- Use at your own risk
+
+---
+
 ## Installation
 
 ### Download the Latest Release
@@ -66,6 +76,8 @@ Kai Browser features an **AI-powered extension builder** that lets you create br
 - "Make a word counter for text fields"
 - "Add a button to translate selected text"
 - "Create a note-taking extension that saves my notes"
+- "Build a todo list that persists across restarts"
+- "Make a bookmark manager"
 
 > **Tip:** You can refine your extension after generation. Ask it to "make the button blue" or "add a keyboard shortcut".
 
@@ -86,11 +98,21 @@ Enable "Auto-fix errors" in the AI tab to have the AI automatically attempt to f
 ```python
 from PyQt6.QtWidgets import QToolButton
 from PyQt6.QtCore import QUrl
+import json
+from pathlib import Path
 
 class MyPlugin:
     def __init__(self, browser):
         self.browser = browser
         self.toolbar = browser.toolbar
+        
+        # Data persistence - organized location
+        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_file = data_dir / "data.json"
+        
+        # Load saved data
+        self.counter = self.load_data()
     
     def activate(self):
         button = QToolButton()
@@ -99,11 +121,24 @@ class MyPlugin:
         self.toolbar.addWidget(button)
     
     def on_click(self):
+        self.counter += 1
+        self.save_data()
+        
         # Always use get_active_web_view() to access the current tab
         web_view = self.browser.get_active_web_view()
         if web_view:
             url = web_view.url().toString()
-            print(f"Current URL: {url}")
+            print(f"Clicked {self.counter} times. Current URL: {url}")
+    
+    def load_data(self):
+        if self.data_file.exists():
+            with open(self.data_file) as f:
+                return json.load(f).get('counter', 0)
+        return 0
+    
+    def save_data(self):
+        with open(self.data_file, 'w') as f:
+            json.dump({'counter': self.counter}, f, indent=2)
 ```
 
 > **Important:** Always use `browser.get_active_web_view()` to access the current tab, not `browser.browser` or `browser.web_view`.
@@ -112,33 +147,39 @@ class MyPlugin:
 
 ### Extension Data Persistence
 
-All extensions automatically have built-in data persistence methods injected at load time. No manual file handling needed!
+Extensions automatically handle their own data storage using standard Python file operations. The AI generates proper save/load methods for you.
 
-**Available Methods:**
+**How It Works:**
 
 ```python
-# Save data (automatically creates JSON files)
-self.save_data('settings', {'theme': 'dark', 'count': 5})
-self.save_data('notes', 'My important notes')
+import json
+from pathlib import Path
 
-# Load data with fallback default
-settings = self.load_data('settings', {'theme': 'light', 'count': 0})
-notes = self.load_data('notes', '')
-
-# Delete specific data
-self.delete_data('old_cache')
-
-# Clear all extension data
-self.clear_all_data()
-
-# Access your data directory path
-print(self.data_dir)
+class MyExtension:
+    def __init__(self, browser):
+        # AI automatically generates this data persistence setup
+        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_file = data_dir / "data.json"
+        
+        # Load saved data
+        self.my_data = self.load_data()
+    
+    def load_data(self):
+        if self.data_file.exists():
+            with open(self.data_file) as f:
+                return json.load(f)
+        return {}  # Default value
+    
+    def save_data(self):
+        with open(self.data_file, 'w') as f:
+            json.dump(self.my_data, f, indent=2)
 ```
 
 **Data Location:**
-- **Linux:** `~/.local/share/kaibrowser/extensions/<extension_name>/`
-- **Windows:** `C:\Users\<user>\AppData\Local\kaibrowser\extensions\<extension_name>\`
-- **Mac:** `~/Library/Application Support/kaibrowser/extensions/<extension_name>/`
+- Extensions save to: `~/kaibrowser/extensions/<ExtensionName>/data.json`
+- Organized by extension class name automatically
+- Data persists across browser restarts
 
 **Managing Extension Data:**
 - Open Extension Builder → **Manage** tab
@@ -150,16 +191,29 @@ print(self.data_dir)
 class NotesPlugin:
     def __init__(self, browser):
         self.browser = browser
+        
+        # Setup data persistence
+        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_file = data_dir / "notes.json"
+        
         # Load saved notes on startup
-        self.notes = self.load_data('notes', '')
+        self.notes = self.load_data()
+    
+    def load_data(self):
+        if self.data_file.exists():
+            with open(self.data_file) as f:
+                return json.load(f).get('notes', '')
+        return ''
     
     def save_notes(self, text):
         # Save notes - persists across browser restarts
-        self.save_data('notes', text)
-        print(f"Saved to: {self.data_dir}")
+        with open(self.data_file, 'w') as f:
+            json.dump({'notes': text}, f, indent=2)
+        print(f"Saved to: {self.data_file}")
 ```
 
-> **Note:** The AI knows about these methods! Just ask it to create extensions that "save settings" or "remember data" and it will use the persistence system automatically.
+> **Note:** The AI knows how to set this up! Just ask it to create extensions that "save settings" or "remember data" and it will generate the proper data persistence code automatically.
 
 ---
 
@@ -203,17 +257,17 @@ class NotesPlugin:
 
 Kai stores data in OS-appropriate locations:
 
-**Linux:** `~/.local/share/kaibrowser/`
-- `preferences.json` – Browser settings and extension states
-- `extensions/` – Extension data (organized by extension name)
-- `profile/` – Cookies and browsing data
-- `cache/` – Cached content
+**Linux:** `~/.local/share/kaibrowser/` and `~/kaibrowser/`
+- `~/.local/share/kaibrowser/preferences.json` – Browser settings and extension states
+- `~/kaibrowser/extensions/` – Extension data (organized by extension name)
+- `~/.local/share/kaibrowser/profile/` – Cookies and browsing data
+- `~/.local/share/kaibrowser/cache/` – Cached content
 
-**Windows:** `C:\Users\<user>\AppData\Local\kaibrowser\`
+**Windows:** `C:\Users\<user>\AppData\Local\kaibrowser\` and `C:\Users\<user>\kaibrowser\`
 
-**Mac:** `~/Library/Application Support/kaibrowser/`
+**Mac:** `~/Library/Application Support/kaibrowser/` and `~/kaibrowser/`
 
-To reset everything, delete the kaibrowser folder from your system's app data location.
+To reset everything, delete both the `.local/share/kaibrowser` and `~/kaibrowser` folders.
 
 ---
 
@@ -257,16 +311,21 @@ web_view = self.browser_core.get_active_web_view()
 ### Data Persistence Issues
 
 ```python
-# Extensions don't need to import anything for data persistence
-# These methods are automatically injected:
+# The AI automatically generates the proper pattern:
 
-# WRONG - manual file handling
-import json, os
-with open('data.json', 'w') as f:
-    json.dump(data, f)
+# Setup in __init__
+data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+data_dir.mkdir(parents=True, exist_ok=True)
+self.data_file = data_dir / "data.json"
 
-# CORRECT - use built-in methods
-self.save_data('my_data', data)
+# Save
+with open(self.data_file, 'w') as f:
+    json.dump(my_data, f, indent=2)
+
+# Load
+if self.data_file.exists():
+    with open(self.data_file) as f:
+        my_data = json.load(f)
 ```
 
 ### AI Generation Issues
