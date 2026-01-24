@@ -65,6 +65,7 @@ Kai Browser features an **AI-powered extension builder** that lets you create br
 - "Create a button that highlights all links in yellow"
 - "Make a word counter for text fields"
 - "Add a button to translate selected text"
+- "Create a note-taking extension that saves my notes"
 
 > **Tip:** You can refine your extension after generation. Ask it to "make the button blue" or "add a keyboard shortcut".
 
@@ -109,6 +110,59 @@ class MyPlugin:
 
 ---
 
+### Extension Data Persistence
+
+All extensions automatically have built-in data persistence methods injected at load time. No manual file handling needed!
+
+**Available Methods:**
+
+```python
+# Save data (automatically creates JSON files)
+self.save_data('settings', {'theme': 'dark', 'count': 5})
+self.save_data('notes', 'My important notes')
+
+# Load data with fallback default
+settings = self.load_data('settings', {'theme': 'light', 'count': 0})
+notes = self.load_data('notes', '')
+
+# Delete specific data
+self.delete_data('old_cache')
+
+# Clear all extension data
+self.clear_all_data()
+
+# Access your data directory path
+print(self.data_dir)
+```
+
+**Data Location:**
+- **Linux:** `~/.local/share/kaibrowser/extensions/<extension_name>/`
+- **Windows:** `C:\Users\<user>\AppData\Local\kaibrowser\extensions\<extension_name>\`
+- **Mac:** `~/Library/Application Support/kaibrowser/extensions/<extension_name>/`
+
+**Managing Extension Data:**
+- Open Extension Builder → **Manage** tab
+- Select an extension and click **"Clear Data"** to reset its saved data
+- When deleting an extension, its data is automatically removed
+
+**Example - Notes Extension:**
+```python
+class NotesPlugin:
+    def __init__(self, browser):
+        self.browser = browser
+        # Load saved notes on startup
+        self.notes = self.load_data('notes', '')
+    
+    def save_notes(self, text):
+        # Save notes - persists across browser restarts
+        self.save_data('notes', text)
+        print(f"Saved to: {self.data_dir}")
+```
+
+> **Note:** The AI knows about these methods! Just ask it to create extensions that "save settings" or "remember data" and it will use the persistence system automatically.
+
+---
+
 ### Method 3: Manual Installation
 
 1. Create your extension as a `.py` file
@@ -122,6 +176,7 @@ class MyPlugin:
 
 - Open the Extension Builder and select the **Manage** tab to view, reload, or delete extensions
 - Use **AI Improve** or **AI Fix** to enhance existing extensions
+- **Clear Data** button removes all saved data for selected extension
 - Enable/disable extensions from the **Extensions Menu (🧩)** in the toolbar
 - Access the **Marketplace** from the Extensions Menu to browse community extensions
 
@@ -146,13 +201,19 @@ class MyPlugin:
 
 ## Data Storage
 
-Kai stores data in `~/.kai_browser/`:
+Kai stores data in OS-appropriate locations:
 
-- `preferences.json` – Settings and extension states
+**Linux:** `~/.local/share/kaibrowser/`
+- `preferences.json` – Browser settings and extension states
+- `extensions/` – Extension data (organized by extension name)
 - `profile/` – Cookies and browsing data
 - `cache/` – Cached content
 
-To reset everything, delete the `~/.kai_browser/` folder.
+**Windows:** `C:\Users\<user>\AppData\Local\kaibrowser\`
+
+**Mac:** `~/Library/Application Support/kaibrowser/`
+
+To reset everything, delete the kaibrowser folder from your system's app data location.
 
 ---
 
@@ -175,11 +236,11 @@ button.setPopupMode(PopupMode.InstantPopup)
 
 # CORRECT
 button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+```
 
-## Important PyQt6 Notes
+**Important PyQt6 Notes:**
 - `QAction` is imported from `PyQt6.QtGui` (not QtWidgets like in PyQt5)
 - Use full enum paths: `QToolButton.ToolButtonPopupMode.InstantPopup`
-```
 
 ### Tab Access Issues
 
@@ -191,6 +252,21 @@ web_view = self.browser_core.browser
 # CORRECT
 web_view = self.browser.get_active_web_view()
 web_view = self.browser_core.get_active_web_view()
+```
+
+### Data Persistence Issues
+
+```python
+# Extensions don't need to import anything for data persistence
+# These methods are automatically injected:
+
+# WRONG - manual file handling
+import json, os
+with open('data.json', 'w') as f:
+    json.dump(data, f)
+
+# CORRECT - use built-in methods
+self.save_data('my_data', data)
 ```
 
 ### AI Generation Issues
