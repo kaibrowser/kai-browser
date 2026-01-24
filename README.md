@@ -1,4 +1,4 @@
-# Kai Browser
+# Kai Browser-beta
 
 A Python-based browser where you can create custom extensions using natural language. Describe what you want, and AI builds it.
 
