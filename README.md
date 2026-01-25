@@ -68,10 +68,6 @@ chmod +x kai-browser
 ### Requirements
 
 - Linux (tested on Ubuntu, Kali Linux, Linux Mint)
-- Python 3.8 or higher
-- PyQt6
-- QtWebEngine
-
 ---
 
 ## Browser Interface
