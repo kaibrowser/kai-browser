@@ -1,10 +1,41 @@
-# Kai Browser-beta
+# Kai Browser
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyQt6](https://img.shields.io/badge/PyQt6-GPL-green.svg)](https://www.riverbankcomputing.com/software/pyqt/)
 
 A Python-based browser where you can create custom extensions using natural language. Describe what you want, and AI builds it.
 
 > **Note:** The AI extension builder is still in early development and actively improving. Available AI providers: Gemini (free tier available), Claude (best results), and OpenAI.
 
-## ⚠️ Safety Notice
+---
+
+## License
+
+KaiBrowser™ is free and open-source software licensed under the **GNU General Public License v3.0**.
+
+This means you can:
+- Use the software freely
+- Modify the source code
+- Distribute your modifications
+- Must keep derivatives under GPL v3
+- Must disclose source code
+
+See [LICENSE](LICENSE) for full terms.
+
+## Disclaimer
+
+**IMPORTANT**: KaiBrowser™ is provided "AS IS" without warranty. Users are responsible for:
+- Third-party extensions installed from any source
+- Content accessed through the browser
+- Compliance with applicable laws
+- AI-generated extension code (always review before activating)
+
+See [DISCLAIMER.md](DISCLAIMER.md) for full legal terms.
+
+---
+
+## Safety Notice
 
 - AI-generated extensions run with full browser permissions
 - **Always review generated code before activating extensions**
@@ -36,7 +67,10 @@ chmod +x kai-browser
 
 ### Requirements
 
-- Linux (tested on Ubuntu)
+- Linux (tested on Ubuntu, Kali Linux, Linux Mint)
+- Python 3.8 or higher
+- PyQt6
+- QtWebEngine
 
 ---
 
@@ -62,6 +96,12 @@ Kai Browser features an **AI-powered extension builder** that lets you create br
 2. Navigate to the **Settings** tab
 3. Enter your API key (Gemini, Claude, or OpenAI)
 4. Your key is stored securely using your system's keyring
+
+**API Key Storage:**
+- Keys are stored in your system's secure keyring (not plain text)
+- Linux: Uses `keyring` library with system keychain
+- Never shared or transmitted except to the selected AI provider
+- Can be deleted at any time through Settings
 
 #### Generate Extensions with Natural Language
 
@@ -249,7 +289,7 @@ class NotesPlugin:
 - Upload your extensions at [kaibrowser.com/upload](https://kaibrowser.com/upload)
 - Sign in to manage your uploads in **My Extensions**
 
-> **Note:** The marketplace is in early development. Review extension code before installing from untrusted sources.
+> **Note:** The marketplace is in early development. Review extension code before installing from untrusted sources. KaiBrowser™ does not guarantee the safety or functionality of third-party extensions. See [DISCLAIMER.md](DISCLAIMER.md) for details.
 
 ---
 
@@ -336,12 +376,47 @@ if self.data_file.exists():
 
 ---
 
+## Contributing
+
+We welcome contributions! Please read our contributing guidelines (coming soon) before submitting pull requests.
+
+### Development Roadmap
+
+- [x] Core browser functionality
+- [x] Extension system with persistent storage
+- [x] AI-powered extension builder
+- [x] Basic UI/UX
+- [x] Kai Marketplace integration
+- [ ] Mobile version
+- [ ] Built-in VPN support
+
+---
+
+## Support & Community
+
+- **Bug Reports**: [Open an issue on GitHub](https://github.com/kaibrowser/kai-browser/issues)
+- **Feature Requests**: Start a discussion
+- **Community**: Join our Discord (coming soon)
+- **Sponsor**: Support development via GitHub Sponsors
+
+---
+
 ## Documentation
 
 For full documentation, visit [kaibrowser.com/docs](https://kaibrowser.com/docs)
 
 ---
 
-## Support
+## Acknowledgments
 
-For issues or questions, please [open an issue on GitHub](https://github.com/kaibrowser/kai-browser/issues).
+Built with:
+- [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) - GUI framework (GPL v3)
+- [QtWebEngine](https://doc.qt.io/qt-6/qtwebengine-index.html) - Web rendering (LGPL v3)
+
+---
+
+**Version**: 1.0.3  
+**Status**: Active Development  
+**Copyright**: © 2025 KaiBrowser™
+
+For questions or support, please open an issue or contact the development team.
