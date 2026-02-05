@@ -47,12 +47,9 @@ See [DISCLAIMER.md](DISCLAIMER.md) for full legal terms.
 
 ## Installation
 
-### Download the Latest Release
+### Option 1: Linux Executable (Easiest)
 
 [Download Kai Browser](https://github.com/kaibrowser/kai-browser/releases/latest)
-
-### Extract and Run
-
 ```bash
 # Extract the archive
 tar -xzf kai-browser-linux.tar.gz
@@ -64,6 +61,35 @@ chmod +x kai-browser
 # Run
 ./kai-browser
 ```
+
+### Option 2: From Source (Linux, Windows, macOS)
+
+Requires Python 3.12+
+```bash
+# Clone the repository
+git clone https://github.com/kaibrowser/kai-browser.git
+cd kai-browser
+
+# Run setup script (creates venv and installs dependencies)
+python3 setup.py    # Linux / macOS
+python setup.py     # Windows
+
+# After first run, use the same command to launch:
+python3 setup.py    # Linux / macOS
+python setup.py     # Windows
+```
+
+The setup script automatically:
+- Creates a Python virtual environment
+- Installs all required packages (PyQt6, PyQt6-WebEngine, etc.)
+- Launches Kai Browser
+
+### Requirements
+
+- Linux (exe and source code tested on Ubuntu, Kali Linux, Linux Mint)
+- Windows (source code tested on Windows 10, 11)
+- macOS (source code - untested, may work)
+- Python 3.12+ (for source code installation)
 
 ### Requirements
 
