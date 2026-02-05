@@ -1,0 +1,32 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  KAI BROWSER - INSTALLATION GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INSTALLATION:
+1. Extract this archive
+2. Open terminal in extracted folder
+3. Run: ./install.sh
+
+LAUNCHING:
+- Type: kaibrowser
+- Double-click desktop icon
+- Search "Kai Browser" in apps menu
+
+UNINSTALLATION:
+- Run: ./uninstall.sh from this folder
+- Or manually: rm -rf ~/.local/share/kaibrowser ~/.local/bin/kaibrowser
+
+TROUBLESHOOTING:
+- If "kaibrowser" command not found:
+  - Restart terminal
+  - Or run: source ~/.bashrc
+  - Make sure ~/.local/bin is in your PATH
+
+- If desktop icon doesn't work:
+  - Right-click → Properties → Allow executing
+
+SUPPORT:
+See README.md for full documentation
+Report issues on GitHub
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
