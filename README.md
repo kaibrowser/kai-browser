@@ -75,7 +75,7 @@ cd kai-browser
 chmod +x kai-browser
 
 # Run
-./kai-browser
+./kaibrowser
 ```
 
 ### Option 2: From Source (Linux, Windows, macOS)

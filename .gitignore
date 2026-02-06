@@ -7,3 +7,6 @@ dependencies/
 .env
 modules/
 README
+build/
+dist/
+kaibrowser.spec
