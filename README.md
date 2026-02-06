@@ -10,6 +10,22 @@ A Python-based browser where you can create custom extensions using natural lang
 
 ---
 
+## Quick Start
+
+**Linux/macOS:**
+```bash
+cd project-directory
+python3 setup.py
+```
+
+**Windows:**
+```bash
+cd project-directory
+python setup.py
+```
+
+---
+
 ## License
 
 KaiBrowser™ is free and open-source software licensed under the **GNU General Public License v3.0**.
@@ -86,15 +102,11 @@ The setup script automatically:
 
 ### Requirements
 
-- Linux (exe and source code tested on Ubuntu, Kali Linux, Linux Mint)
-- Windows (source code tested on Windows 10, 11)
-- macOS (source code - untested, may work)
-- Python 3.12+ (for source code installation)
+- **Linux** (exe and source code tested on Ubuntu, Kali Linux, Linux Mint)
+- **Windows** (source code tested on Windows 10, 11)
+- **macOS** (source code - untested, may work)
+- **Python 3.12+** (for source code installation)
 
-### Requirements
-
-- Linux (exe and source code tested on Ubuntu, Kali Linux, Linux Mint)
-- Windows (source code tested on Windows 10, 11)
 ---
 
 ## Browser Interface
@@ -328,7 +340,7 @@ Kai stores data in OS-appropriate locations:
 
 **Windows:** `C:\Users\<user>\AppData\Local\kaibrowser\` and `C:\Users\<user>\kaibrowser\`
 
-**Mac:** `~/Library/Application Support/kaibrowser/` and `~/kaibrowser/`
+**macOS:** `~/Library/Application Support/kaibrowser/` and `~/kaibrowser/`
 
 To reset everything, delete both the `.local/share/kaibrowser` and `~/kaibrowser` folders.
 
@@ -435,7 +447,8 @@ We welcome contributions! Please read our contributing guidelines (coming soon) 
 
 ## Documentation
 
-For full documentation, see this README 
+For full documentation, see this README.
+
 ---
 
 ## Acknowledgments
