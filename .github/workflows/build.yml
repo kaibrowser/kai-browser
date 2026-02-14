@@ -1,0 +1,125 @@
+name: Build Kai Browser
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:  # Manual trigger option
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-latest]
+        include:
+          - os: ubuntu-20.04
+            artifact_name: kaibrowser-linux
+            asset_ext: tar.gz
+          - os: windows-latest
+            artifact_name: kaibrowser-windows
+            asset_ext: zip
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller PyQt6 selenium webdriver-manager keyring requests
+    
+    - name: Build with PyInstaller (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        pyinstaller --onefile --windowed --name kaibrowser \
+          --icon=kai-browser_logo.ico \
+          --add-data "kai-browser_logo.png:." \
+          --exclude-module=modules \
+          --exclude-module=dependencies \
+          --exclude-module=__pycache__ \
+          --hidden-import=PyQt6 \
+          --hidden-import=selenium \
+          --hidden-import=webdriver_manager \
+          --hidden-import=keyring \
+          --hidden-import=requests \
+          launch_browser.py
+        
+        cp kai-browser_logo.png dist/
+        cp DISCLAIMER.md dist/ 2>/dev/null || true
+        cp README.md dist/ 2>/dev/null || true
+        cp LICENSE.save dist/ 2>/dev/null || true
+        cp HOW_TO_INSTALL.txt dist/ 2>/dev/null || true
+        cp TERMS_OF_SERVICE.md dist/ 2>/dev/null || true
+        cp install.sh dist/ 2>/dev/null || true
+        cp uninstall.sh dist/ 2>/dev/null || true
+        chmod +x dist/install.sh dist/uninstall.sh 2>/dev/null || true
+    
+    - name: Build with PyInstaller (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        pyinstaller --onefile --windowed --name kaibrowser `
+          --icon=kai-browser_logo.ico `
+          --add-data "kai-browser_logo.png;." `
+          --exclude-module=modules `
+          --exclude-module=dependencies `
+          --exclude-module=__pycache__ `
+          --hidden-import=PyQt6 `
+          --hidden-import=selenium `
+          --hidden-import=webdriver_manager `
+          --hidden-import=keyring `
+          --hidden-import=requests `
+          launch_browser.py
+        
+        Copy-Item kai-browser_logo.png dist\ -ErrorAction SilentlyContinue
+        Copy-Item DISCLAIMER.md dist\ -ErrorAction SilentlyContinue
+        Copy-Item README.md dist\ -ErrorAction SilentlyContinue
+        Copy-Item LICENSE.save dist\ -ErrorAction SilentlyContinue
+        Copy-Item HOW_TO_INSTALL.txt dist\ -ErrorAction SilentlyContinue
+        Copy-Item TERMS_OF_SERVICE.md dist\ -ErrorAction SilentlyContinue
+      shell: pwsh
+    
+    - name: Package Linux build
+      if: runner.os == 'Linux'
+      run: |
+        cd dist
+        tar -czf ../kaibrowser-linux-${{ github.ref_name }}.tar.gz *
+        cd ..
+    
+    - name: Package Windows build
+      if: runner.os == 'Windows'
+      run: |
+        Compress-Archive -Path dist\* -DestinationPath kaibrowser-windows-${{ github.ref_name }}.zip
+      shell: pwsh
+    
+    - name: Upload Linux artifact
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kaibrowser-linux
+        path: kaibrowser-linux-${{ github.ref_name }}.tar.gz
+    
+    - name: Upload Windows artifact
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kaibrowser-windows
+        path: kaibrowser-windows-${{ github.ref_name }}.zip
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          kaibrowser-linux-${{ github.ref_name }}.tar.gz
+          kaibrowser-windows-${{ github.ref_name }}.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
