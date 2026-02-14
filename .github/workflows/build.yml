@@ -33,7 +33,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller PyQt6 selenium webdriver-manager keyring requests
+        pip install pyinstaller PyQt6 PyQt6-WebEngine selenium webdriver-manager keyring requests
     
     - name: Build with PyInstaller (Linux)
       if: runner.os == 'Linux'
