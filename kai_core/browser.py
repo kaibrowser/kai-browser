@@ -308,6 +308,7 @@ class KaiBrowser(QMainWindow):
                 border: none;
                 font-size: 14px;
                 padding: 0px;
+                margin-right: 4px;
             }
             QPushButton:hover {
                 background-color: #bcbcbc;

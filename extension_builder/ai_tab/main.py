@@ -23,12 +23,14 @@ from PyQt6.QtCore import QTimer, QThread, pyqtSignal
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 from .ai_streaming import AIStreamingThread
 from .chat_display import ChatDisplayManager
 from .code_manager import CodeManager
 from .error_handler import ErrorHandler
 from ..utils import ModuleLoader, build_ai_context
+from .ai_performance_monitor import AIPerformanceMonitor
 
 
 class PipInstallThread(QThread):
@@ -301,6 +303,13 @@ class AIBuilderTab(QWidget):
         self.modules_dir = modules_dir
         self.ai_manager = ai_manager
         self.ai_thread = None
+
+        # Initialize performance monitor
+        try:
+            self.performance_monitor = AIPerformanceMonitor(browser_core)
+        except Exception as e:
+            print(f"Failed to load performance monitor: {e}")
+            self.performance_monitor = None
 
         # Get dependencies directory from browser or create default
         if hasattr(browser_core, "dependencies_dir"):
@@ -714,9 +723,14 @@ class AIBuilderTab(QWidget):
         self.chat_display.add_user_message(message)
         self.code_manager.save_session()
 
+        # Track start time and request BEFORE clearing input
+        self.generation_start_time = time.time()
+        self.current_request = message  # ← Save it here
+
         self.message_input.clear()
         self.set_send_button_mode("stop")
         self.progress_animation.start("AI is thinking")
+        self.generation_start_time = time.time()
 
         context = build_ai_context(
             message, self.code_manager.get_history(), self.code_manager.get_code()
@@ -801,6 +815,20 @@ class AIBuilderTab(QWidget):
         self.progress_animation.stop()
         self.status_label.setText(f"⚠️ {friendly_message}")
 
+        # Log the error
+        if self.performance_monitor:
+            duration = time.time() - getattr(self, "generation_start_time", time.time())
+            user_request = getattr(self, "current_request", "Unknown")
+
+            self.performance_monitor.log_generation(
+                request_text=user_request,
+                success=False,
+                duration_seconds=duration,
+                error=Exception(f"{error_type}: {friendly_message}"),
+                code_length=0,
+                prompt_size=0,
+            )
+
         if not can_retry:
             QMessageBox.warning(self, "Cannot Continue", friendly_message)
 
@@ -813,6 +841,33 @@ class AIBuilderTab(QWidget):
         """Handle generation completion"""
         self.progress_animation.stop()
         self.set_send_button_mode("send")
+
+        # Log performance data
+        if self.performance_monitor and self.ai_thread:
+            stats = self.ai_thread.get_stats()
+
+            # Calculate actual duration
+            duration = time.time() - getattr(self, "generation_start_time", time.time())
+
+            # Get user's original request from message input or history
+            user_request = getattr(self, "current_request", "Unknown")
+
+            self.performance_monitor.log_generation(
+                request_text=user_request or "Unknown",
+                success=result.get("success", False),
+                duration_seconds=duration,
+                error=(
+                    None
+                    if result.get("success")
+                    else Exception(result.get("error", "Unknown error"))
+                ),
+                code_length=len(result.get("code", "")),
+                prompt_size=(
+                    len(str(self.ai_thread.context))
+                    if hasattr(self.ai_thread, "context")
+                    else 0
+                ),
+            )
 
         if result.get("code"):
             clean_code = result["code"]

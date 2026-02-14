@@ -469,9 +469,9 @@ class AIStreamingThread(QThread):
             self.generation_stopped = False
             self.chat_sent = False
 
-            timeout_timer = QTimer()
-            timeout_timer.timeout.connect(self._check_timeout)
-            timeout_timer.start(1000)
+            # timeout_timer = QTimer()
+            # timeout_timer.timeout.connect(self._check_timeout)
+            # timeout_timer.start(1000)
 
             def handle_stream_event(event):
                 if self.should_stop:
@@ -511,13 +511,13 @@ class AIStreamingThread(QThread):
                 elif event_type == "done":
                     self.is_streaming = False
                     self.progress.emit("Complete!")
-                    timeout_timer.stop()
+                    # timeout_timer.stop()
 
                 elif event_type == "error":
                     self.is_streaming = False
                     error_type = self._categorize_error(content)
                     self._handle_error(error_type, content)
-                    timeout_timer.stop()
+                    # timeout_timer.stop()
 
                 if "tokens" in event:
                     self.total_tokens = event["tokens"]
@@ -543,7 +543,7 @@ class AIStreamingThread(QThread):
             while not result_container["completed"] and not self.should_stop:
                 time.sleep(0.1)
 
-            timeout_timer.stop()
+            # timeout_timer.stop()
 
             if self.should_stop:
                 self.generation_stopped = True
@@ -634,18 +634,18 @@ class AIStreamingThread(QThread):
             self.quit()
             return
 
-        if not self.is_streaming:
-            return
+        # if not self.is_streaming:
+        #     return
 
-        elapsed = time.time() - self.last_chunk_time
+        # elapsed = time.time() - self.last_chunk_time
 
-        if elapsed > self.stall_threshold and elapsed < self.timeout:
-            self.progress.emit(f"Connection slow ({int(elapsed)}s)...")
+        # if elapsed > self.stall_threshold and elapsed < self.timeout:
+        #     self.progress.emit(f"Connection slow ({int(elapsed)}s)...")
 
-        if elapsed > self.timeout:
-            self.is_streaming = False
-            self._handle_error("timeout", f"No response for {self.timeout}s")
-            self.quit()
+        # if elapsed > self.timeout:
+        #     self.is_streaming = False
+        #     self._handle_error("timeout", f"No response for {self.timeout}s")
+        #     self.quit()
 
     def stop(self):
         """Stop thread gracefully"""
