@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller PyQt6 PyQt6-WebEngine selenium webdriver-manager keyring requests
+        pip install pyinstaller PyQt6 PyQt6-WebEngine selenium webdriver-manager keyring requests Pillow qrcode numpy pandas beautifulsoup4 lxml cryptography
     
     - name: Build with PyInstaller (Windows)
       run: |
@@ -38,6 +38,17 @@ jobs:
           --hidden-import=webdriver_manager `
           --hidden-import=keyring `
           --hidden-import=requests `
+          --hidden-import=PIL `
+          --hidden-import=PIL._imaging `
+          --hidden-import=qrcode `
+          --hidden-import=numpy `
+          --hidden-import=pandas `
+          --hidden-import=bs4 `
+          --hidden-import=lxml `
+          --hidden-import=cryptography `
+          --collect-all=PIL `
+          --collect-all=numpy `
+          --collect-all=pandas `
           launch_browser.py
         
         Copy-Item kai-browser_logo.png dist\ -ErrorAction SilentlyContinue
