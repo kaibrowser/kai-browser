@@ -6,7 +6,7 @@ dependencies/
 *.egg-info/
 .env
 modules/
-README
+notes/
 build/
 dist/
 kaibrowser.spec
