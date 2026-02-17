@@ -80,6 +80,7 @@ jobs:
           cp DISCLAIMER.md "$INSTALL_DIR/" 2>/dev/null
           cp README.md "$INSTALL_DIR/" 2>/dev/null
           cp LICENSE.save "$INSTALL_DIR/" 2>/dev/null
+          cp HOW_TO_INSTALL.TXT "$INSTALL_DIR/" 2>/dev/null
           cp TERMS_OF_SERVICE.md "$INSTALL_DIR/" 2>/dev/null
           chmod +x "$INSTALL_DIR/kaibrowser"
 
