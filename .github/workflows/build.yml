@@ -3,250 +3,250 @@ name: Build Kai Browser
 on:
   push:
     tags:
-      - 'v*'  # Triggers on version tags like v1.0.5
-  workflow_dispatch:  # Manual trigger option
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            artifact_name: kaibrowser-linux
-            asset_ext: tar.gz
-          - os: windows-latest
-            artifact_name: kaibrowser-windows
-            asset_ext: zip
-    
-    runs-on: ${{ matrix.os }}
-    
+  build-linux:
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.9'
-    
-    - name: Install Qt6 dependencies (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libxcb-cursor0 \
-          libxcb-icccm4 \
-          libxcb-image0 \
-          libxcb-keysyms1 \
-          libxcb-randr0 \
-          libxcb-render-util0 \
-          libxcb-shape0 \
-          libxcb-xfixes0 \
-          libxcb-xinerama0 \
-          libxkbcommon-x11-0 \
-          libegl1 \
-          libgl1 \
-          libdbus-1-3
-    
-    - name: Install dependencies (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller PyQt6 PyQt6-WebEngine selenium webdriver-manager keyring requests
-    
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller Pillow qrcode numpy pandas beautifulsoup4 lxml cryptography
-    
-    - name: Build with PyInstaller (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        pyinstaller --onefile --windowed --name kaibrowser \
-          --icon=kai-browser_logo.ico \
-          --add-data "kai-browser_logo.png:." \
-          --hidden-import=PyQt6 \
-          --hidden-import=PyQt6.QtWebEngineWidgets \
-          --hidden-import=selenium \
-          --hidden-import=webdriver_manager \
-          --hidden-import=keyring \
-          --hidden-import=requests \
-          --collect-all=PyQt6 \
-          launch_browser.py
-        
-        cp kai-browser_logo.png dist/kaibrowser.png
-        cp DISCLAIMER.md dist/ 2>/dev/null || true
-        cp README.md dist/ 2>/dev/null || true
-        cp LICENSE.save dist/ 2>/dev/null || true
-        cp TERMS_OF_SERVICE.md dist/ 2>/dev/null || true
-        
-        # Create install script
-        cat > dist/install.sh << 'EOF'
-        #!/bin/bash
-        clear
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Kai Browser Installation"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        
-        INSTALL_DIR="$HOME/.local/share/kaibrowser"
-        BIN_DIR="$HOME/.local/bin"
-        
-        mkdir -p "$INSTALL_DIR"
-        mkdir -p "$BIN_DIR"
-        
-        echo "→ Installing application files..."
-        cp kaibrowser "$INSTALL_DIR/" || { echo "✗ Failed to copy kaibrowser"; exit 1; }
-        cp kaibrowser.png "$INSTALL_DIR/" 2>/dev/null
-        cp DISCLAIMER.md "$INSTALL_DIR/" 2>/dev/null
-        cp README.md "$INSTALL_DIR/" 2>/dev/null
-        cp LICENSE.save "$INSTALL_DIR/" 2>/dev/null
-        cp TERMS_OF_SERVICE.md "$INSTALL_DIR/" 2>/dev/null
-        chmod +x "$INSTALL_DIR/kaibrowser"
-        
-        cat > "$BIN_DIR/kaibrowser" << 'WRAPPER'
-        #!/bin/bash
-        exec "$HOME/.local/share/kaibrowser/kaibrowser" "$@"
-        WRAPPER
-        chmod +x "$BIN_DIR/kaibrowser"
-        echo "✓ Installed to $INSTALL_DIR"
-        
-        if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-            echo ""
-            echo "⚠ WARNING: $BIN_DIR is not in your PATH"
-            echo "Add this line to your shell config (~/.bashrc or ~/.zshrc):"
-            echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
-        fi
-        
-        mkdir -p "$HOME/.local/share/applications"
-        cat > "$HOME/.local/share/applications/kaibrowser.desktop" << DESKTOPEOF
-        [Desktop Entry]
-        Version=1.0.5
-        Type=Application
-        Name=Kai Browser
-        Comment=AI-powered extensible browser
-        Exec=$INSTALL_DIR/kaibrowser
-        Icon=$INSTALL_DIR/kaibrowser.png
-        Terminal=false
-        Categories=Network;WebBrowser;
-        DESKTOPEOF
-        echo "✓ Added to applications menu"
-        
-        if [ -d ~/Desktop ]; then
-            read -p "Create desktop shortcut? (y/n) " -n 1 -r
-            echo ""
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                cp "$HOME/.local/share/applications/kaibrowser.desktop" ~/Desktop/
-                chmod +x ~/Desktop/kaibrowser.desktop
-                if command -v gio &> /dev/null; then
-                    gio set ~/Desktop/kaibrowser.desktop metadata::trusted true 2>/dev/null
-                fi
-                echo "✓ Desktop shortcut created"
-            fi
-        fi
-        
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Installation Complete!"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "Launch: kaibrowser"
-        echo ""
-        EOF
-        
-        chmod +x dist/install.sh
-        
-        # Create uninstall script
-        cat > dist/uninstall.sh << 'EOF'
-        #!/bin/bash
-        clear
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Kai Browser Uninstall"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        
-        [ -d "$HOME/.local/share/kaibrowser" ] && rm -rf "$HOME/.local/share/kaibrowser" && echo "✓ Removed application files"
-        [ -f "$HOME/.local/bin/kaibrowser" ] && rm "$HOME/.local/bin/kaibrowser" && echo "✓ Removed executable"
-        [ -f "$HOME/.local/share/applications/kaibrowser.desktop" ] && rm "$HOME/.local/share/applications/kaibrowser.desktop" && echo "✓ Removed from applications menu"
-        [ -f ~/Desktop/kaibrowser.desktop ] && rm ~/Desktop/kaibrowser.desktop && echo "✓ Removed desktop shortcut"
-        
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Uninstall Complete!"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        EOF
-        
-        chmod +x dist/uninstall.sh
-    
-    - name: Build with PyInstaller (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        pyinstaller --onefile --windowed --name kaibrowser `
-          --icon=kai-browser_logo.ico `
-          --add-data "kai-browser_logo.png;." `
-          --hidden-import=PyQt6 `
-          --hidden-import=selenium `
-          --hidden-import=webdriver_manager `
-          --hidden-import=keyring `
-          --hidden-import=requests `
-          --hidden-import=PIL `
-          --hidden-import=PIL._imaging `
-          --hidden-import=qrcode `
-          --hidden-import=numpy `
-          --hidden-import=pandas `
-          --hidden-import=bs4 `
-          --hidden-import=lxml `
-          --hidden-import=cryptography `
-          --collect-all=PIL `
-          --collect-all=numpy `
-          --collect-all=pandas `
-          launch_browser.py
-        
-        Copy-Item kai-browser_logo.png dist\ -ErrorAction SilentlyContinue
-        Copy-Item DISCLAIMER.md dist\ -ErrorAction SilentlyContinue
-        Copy-Item README.md dist\ -ErrorAction SilentlyContinue
-        Copy-Item LICENSE.save dist\ -ErrorAction SilentlyContinue
-        Copy-Item TERMS_OF_SERVICE.md dist\ -ErrorAction SilentlyContinue
-      shell: pwsh
-    
-    - name: Package Linux build
-      if: runner.os == 'Linux'
-      run: |
-        cd dist
-        tar -czf ../kaibrowser-linux.tar.gz *
-        cd ..
-    
-    - name: Package Windows build
-      if: runner.os == 'Windows'
-      run: |
-        Compress-Archive -Path dist\* -DestinationPath kaibrowser-windows.zip
-      shell: pwsh
-    
-    - name: Upload Linux artifact
-      if: runner.os == 'Linux'
-      uses: actions/upload-artifact@v4
-      with:
-        name: kaibrowser-linux
-        path: kaibrowser-linux.tar.gz
-    
-    - name: Upload Windows artifact
-      if: runner.os == 'Windows'
-      uses: actions/upload-artifact@v4
-      with:
-        name: kaibrowser-windows
-        path: kaibrowser-windows.zip
-    
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          kaibrowser-linux.tar.gz
-          kaibrowser-windows.zip
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Qt6 dependencies (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xfixes0 \
+            libxcb-xinerama0 \
+            libxkbcommon-x11-0 \
+            libegl1 \
+            libgl1 \
+            libdbus-1-3
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller PyQt6 PyQt6-WebEngine selenium webdriver-manager keyring requests
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --name kaibrowser \
+            --icon=kai-browser_logo.ico \
+            --add-data "kai-browser_logo.png:." \
+            --hidden-import=PyQt6 \
+            --hidden-import=selenium \
+            --hidden-import=webdriver_manager \
+            --hidden-import=keyring \
+            --hidden-import=requests \
+            launch_browser.py
+
+          cp kai-browser_logo.png dist/kaibrowser.png
+          cp DISCLAIMER.md dist/ 2>/dev/null || true
+          cp README.md dist/ 2>/dev/null || true
+          cp LICENSE.save dist/ 2>/dev/null || true
+          cp TERMS_OF_SERVICE.md dist/ 2>/dev/null || true
+
+          # Create install script
+          cat > dist/install.sh << 'EOF'
+          #!/bin/bash
+          clear
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Kai Browser Installation"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          INSTALL_DIR="$HOME/.local/share/kaibrowser"
+          BIN_DIR="$HOME/.local/bin"
+
+          mkdir -p "$INSTALL_DIR"
+          mkdir -p "$BIN_DIR"
+
+          echo "→ Installing application files..."
+          cp kaibrowser "$INSTALL_DIR/" || { echo "✗ Failed to copy kaibrowser"; exit 1; }
+          cp kaibrowser.png "$INSTALL_DIR/" 2>/dev/null
+          cp DISCLAIMER.md "$INSTALL_DIR/" 2>/dev/null
+          cp README.md "$INSTALL_DIR/" 2>/dev/null
+          cp LICENSE.save "$INSTALL_DIR/" 2>/dev/null
+          cp TERMS_OF_SERVICE.md "$INSTALL_DIR/" 2>/dev/null
+          chmod +x "$INSTALL_DIR/kaibrowser"
+
+          cat > "$BIN_DIR/kaibrowser" << 'WRAPPER'
+          #!/bin/bash
+          exec "$HOME/.local/share/kaibrowser/kaibrowser" "$@"
+          WRAPPER
+          chmod +x "$BIN_DIR/kaibrowser"
+          echo "✓ Installed to $INSTALL_DIR"
+
+          if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+              echo ""
+              echo "⚠ WARNING: $BIN_DIR is not in your PATH"
+              echo "Add this line to your shell config (~/.bashrc or ~/.zshrc):"
+              echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+          fi
+
+          mkdir -p "$HOME/.local/share/applications"
+          cat > "$HOME/.local/share/applications/kaibrowser.desktop" << DESKTOPEOF
+          [Desktop Entry]
+          Version=1.0.5
+          Type=Application
+          Name=Kai Browser
+          Comment=AI-powered extensible browser
+          Exec=$INSTALL_DIR/kaibrowser
+          Icon=$INSTALL_DIR/kaibrowser.png
+          Terminal=false
+          Categories=Network;WebBrowser;
+          DESKTOPEOF
+          echo "✓ Added to applications menu"
+
+          if [ -d ~/Desktop ]; then
+              read -p "Create desktop shortcut? (y/n) " -n 1 -r
+              echo ""
+              if [[ $REPLY =~ ^[Yy]$ ]]; then
+                  cp "$HOME/.local/share/applications/kaibrowser.desktop" ~/Desktop/
+                  chmod +x ~/Desktop/kaibrowser.desktop
+                  if command -v gio &> /dev/null; then
+                      gio set ~/Desktop/kaibrowser.desktop metadata::trusted true 2>/dev/null
+                  fi
+                  echo "✓ Desktop shortcut created"
+              fi
+          fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Installation Complete!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Launch: kaibrowser"
+          echo ""
+          EOF
+
+          chmod +x dist/install.sh
+
+          # Create uninstall script
+          cat > dist/uninstall.sh << 'EOF'
+          #!/bin/bash
+          clear
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Kai Browser Uninstall"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          [ -d "$HOME/.local/share/kaibrowser" ] && rm -rf "$HOME/.local/share/kaibrowser" && echo "✓ Removed application files"
+          [ -f "$HOME/.local/bin/kaibrowser" ] && rm "$HOME/.local/bin/kaibrowser" && echo "✓ Removed executable"
+          [ -f "$HOME/.local/share/applications/kaibrowser.desktop" ] && rm "$HOME/.local/share/applications/kaibrowser.desktop" && echo "✓ Removed from applications menu"
+          [ -f ~/Desktop/kaibrowser.desktop ] && rm ~/Desktop/kaibrowser.desktop && echo "✓ Removed desktop shortcut"
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Uninstall Complete!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          EOF
+
+          chmod +x dist/uninstall.sh
+
+      - name: Package Linux build
+        run: |
+          cd dist
+          tar -czf ../kaibrowser-linux-${{ github.ref_name }}.tar.gz *
+          cd ..
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaibrowser-linux
+          path: kaibrowser-linux-${{ github.ref_name }}.tar.gz
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: kaibrowser-linux-${{ github.ref_name }}.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller PyQt6 PyQt6-WebEngine selenium webdriver-manager keyring requests Pillow qrcode numpy pandas beautifulsoup4 lxml cryptography
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --name kaibrowser `
+            --icon=kai-browser_logo.ico `
+            --add-data "kai-browser_logo.png;." `
+            --exclude-module=modules `
+            --exclude-module=dependencies `
+            --exclude-module=__pycache__ `
+            --hidden-import=PyQt6 `
+            --hidden-import=PyQt6.QtWebEngineWidgets `
+            --hidden-import=selenium `
+            --hidden-import=webdriver_manager `
+            --hidden-import=keyring `
+            --hidden-import=requests `
+            --hidden-import=PIL `
+            --hidden-import=PIL._imaging `
+            --hidden-import=qrcode `
+            --hidden-import=numpy `
+            --hidden-import=pandas `
+            --hidden-import=bs4 `
+            --hidden-import=lxml `
+            --hidden-import=cryptography `
+            --collect-all=PIL `
+            --collect-all=numpy `
+            --collect-all=pandas `
+            launch_browser.py
+
+          Copy-Item kai-browser_logo.png dist\ -ErrorAction SilentlyContinue
+          Copy-Item DISCLAIMER.md dist\ -ErrorAction SilentlyContinue
+          Copy-Item README.md dist\ -ErrorAction SilentlyContinue
+          Copy-Item LICENSE.save dist\ -ErrorAction SilentlyContinue
+          Copy-Item TERMS_OF_SERVICE.md dist\ -ErrorAction SilentlyContinue
+        shell: pwsh
+
+      - name: Package Windows build
+        run: |
+          Compress-Archive -Path dist\* -DestinationPath kaibrowser-windows-${{ github.ref_name }}.zip
+        shell: pwsh
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaibrowser-windows
+          path: kaibrowser-windows-${{ github.ref_name }}.zip
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: kaibrowser-windows-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
