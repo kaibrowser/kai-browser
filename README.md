@@ -10,19 +10,67 @@ A Python-based browser where you can create custom extensions using natural lang
 
 ---
 
-## Quick Start
+## Quick Start (Source)
+
+Requires Python 3.12+
+
+```bash
+git clone https://github.com/kaibrowser/kaibrowser.git
+cd kaibrowser
+```
 
 **Linux/macOS:**
 ```bash
-cd project-directory
 python3 kaibrowser.py
 ```
 
 **Windows:**
 ```bash
-cd project-directory
 python kaibrowser.py
 ```
+
+First run will create a virtual environment and install dependencies automatically.
+
+---
+
+## Download (Compiled)
+
+[Download Kai Browser](https://github.com/kaibrowser/kaibrowser/releases) or visit [kaibrowser.com](https://kaibrowser.com)
+
+### Linux
+
+```bash
+tar -xzf kaibrowser-linux.tar.gz
+cd kaibrowser-linux
+./install.sh
+```
+
+This installs to your app list and desktop. Run `kaibrowser` from anywhere to launch.
+
+To remove, run `./uninstall.sh` from the kaibrowser-linux directory.
+
+### Windows
+
+Extract the zip and run `kaibrowser.exe`.
+
+---
+
+## Requirements
+
+- **Linux** — tested on Ubuntu, Kali Linux, Linux Mint
+- **Windows** — tested on Windows 10, 11
+- **macOS** — untested, may work
+- **Python 3.12+** — required for source installation
+
+---
+
+## Safety Notice
+
+- AI-generated extensions run with full browser permissions
+- Always review generated code before activating extensions
+- Never include sensitive information (passwords, tokens) in AI prompts
+- Extensions are stored as Python files in `~/kaibrowser/modules/`
+- Use at your own risk
 
 ---
 
@@ -30,75 +78,39 @@ python kaibrowser.py
 
 KaiBrowser™ is free and open-source software licensed under the **GNU General Public License v3.0**.
 
-This means you can:
-- Use the software freely
-- Modify the source code
-- Distribute your modifications
-- Must keep derivatives under GPL v3
-- Must disclose source code
-
-See [LICENSE](LICENSE) for full terms.
+You can use, modify, and distribute the software freely. Derivatives must remain under GPL v3 with source code disclosed. See [LICENSE](LICENSE) for full terms.
 
 ## Disclaimer
 
-**IMPORTANT**: KaiBrowser™ is provided "AS IS" without warranty. Users are responsible for:
-- Third-party extensions installed from any source
-- Content accessed through the browser
-- Compliance with applicable laws
-- AI-generated extension code (always review before activating)
+KaiBrowser™ is provided "AS IS" without warranty. Users are responsible for third-party extensions, content accessed through the browser, compliance with applicable laws, and reviewing AI-generated extension code before activating.
 
 See [DISCLAIMER.md](DISCLAIMER.md) for full legal terms.
 
 ---
 
-## Safety Notice
-
-- AI-generated extensions run with full browser permissions
-- **Always review generated code before activating extensions**
-- Never include sensitive information (passwords, tokens) in AI prompts
-- Extensions are stored as Python files in `~/kaibrowser/modules/`
-- Use at your own risk
-
----
-
 ## Installation
 
-### Option 1: Linux Executable (Easiest)
+[Download Kai Browser](https://github.com/kaibrowser/kaibrowser/releases) or (https://kaibrowser.com)
 
-[Download Kai Browser](https://github.com/kaibrowser/kai-browser/releases/latest)
+
+### Linux Executable 
+
 ```bash
 # Extract the archive
-tar -xzf kai-browser-linux.tar.gz
-cd kai-browser
+tar -xzf kaibrowser-linux.tar.gz 
+cd kaibrowser-linux 
 
-# Make executable (if needed)
-chmod +x kai-browser
+in the kaibrowser-linux dir open a terminal and use ./install.sh to install to app list and desktop (system wide)
 
 # Run
-./kaibrowser
+kaibrowser anywhere to launch 
 ```
+use ./uninstall.sh in the kaibrowser-linux dir to remove from the system
 
-### Option 2: From Source (Linux, Windows, macOS)
+### Windows Executable
 
-Requires Python 3.12+
-```bash
-# Clone the repository
-git clone https://github.com/kaibrowser/kai-browser.git
-cd kai-browser
+run the exe 
 
-# Run setup script (creates venv and installs dependencies)
-python3 setup.py    # Linux / macOS
-python setup.py     # Windows
-
-# After first run, use the same command to launch:
-python3 setup.py    # Linux / macOS
-python setup.py     # Windows
-```
-
-The setup script automatically:
-- Creates a Python virtual environment
-- Installs all required packages (PyQt6, PyQt6-WebEngine, etc.)
-- Launches Kai Browser
 
 ### Requirements
 
@@ -431,7 +443,6 @@ We welcome contributions! Please read our contributing guidelines (coming soon) 
 - [x] AI-powered extension builder
 - [x] Basic UI/UX
 - [x] Kai Marketplace integration
-- [ ] Mobile version
 - [ ] Built-in VPN support
 
 ---
