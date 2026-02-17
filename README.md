@@ -15,13 +15,13 @@ A Python-based browser where you can create custom extensions using natural lang
 **Linux/macOS:**
 ```bash
 cd project-directory
-python3 setup.py
+python3 kaibrowser.py
 ```
 
 **Windows:**
 ```bash
 cd project-directory
-python setup.py
+python kaibrowser.py
 ```
 
 ---

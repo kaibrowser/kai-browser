@@ -8,11 +8,9 @@ is_windows = platform.system() == "Windows"
 pip_path = os.path.join(venv_dir, "Scripts" if is_windows else "bin", "pip")
 python_path = os.path.join(venv_dir, "Scripts" if is_windows else "bin", "python")
 
-# Check if venv exists
 if not os.path.exists(venv_dir):
     print("Creating virtual environment...")
     subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True)
-
     print("Installing packages...")
     subprocess.run(
         [
@@ -30,5 +28,5 @@ if not os.path.exists(venv_dir):
 else:
     print("Virtual environment found, skipping setup...")
 
-print("Launching application...")
+print("Launching Kai Browser...")
 subprocess.run([python_path, "launch_browser.py"], check=True)
