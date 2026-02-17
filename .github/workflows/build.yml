@@ -161,20 +161,20 @@ jobs:
       - name: Package Linux build
         run: |
           cd dist
-          tar -czf ../kaibrowser-linux-${{ github.ref_name }}.tar.gz *
+          tar -czf ../kaibrowser-linux.tar.gz *
           cd ..
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: kaibrowser-linux
-          path: kaibrowser-linux-${{ github.ref_name }}.tar.gz
+          path: kaibrowser-linux.tar.gz
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: kaibrowser-linux-${{ github.ref_name }}.tar.gz
+          files: kaibrowser-linux.tar.gz
           draft: false
           prerelease: false
         env:
@@ -232,20 +232,20 @@ jobs:
 
       - name: Package Windows build
         run: |
-          Compress-Archive -Path dist\* -DestinationPath kaibrowser-windows-${{ github.ref_name }}.zip
+          Compress-Archive -Path dist\* -DestinationPath kaibrowser-windows.zip
         shell: pwsh
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: kaibrowser-windows
-          path: kaibrowser-windows-${{ github.ref_name }}.zip
+          path: kaibrowser-windows.zip
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: kaibrowser-windows-${{ github.ref_name }}.zip
+          files: kaibrowser-windows.zip
           draft: false
           prerelease: false
         env:
