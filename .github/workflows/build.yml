@@ -58,6 +58,7 @@ jobs:
           cp README.md dist/ 2>/dev/null || true
           cp LICENSE.save dist/ 2>/dev/null || true
           cp TERMS_OF_SERVICE.md dist/ 2>/dev/null || true
+          cp HOW_TO_INSTALL.txt dist/ 2>/dev/null || true
 
           # Create install script
           cat > dist/install.sh << 'EOF'
@@ -80,7 +81,6 @@ jobs:
           cp DISCLAIMER.md "$INSTALL_DIR/" 2>/dev/null
           cp README.md "$INSTALL_DIR/" 2>/dev/null
           cp LICENSE.save "$INSTALL_DIR/" 2>/dev/null
-          cp HOW_TO_INSTALL.TXT "$INSTALL_DIR/" 2>/dev/null
           cp TERMS_OF_SERVICE.md "$INSTALL_DIR/" 2>/dev/null
           chmod +x "$INSTALL_DIR/kaibrowser"
 
@@ -199,7 +199,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller --onefile --windowed --name kaibrowser `
+          pyinstaller --onedir --windowed --name kaibrowser `
             --icon=kai-browser_logo.ico `
             --add-data "kai-browser_logo.png;." `
             --exclude-module=modules `
@@ -219,21 +219,18 @@ jobs:
             --hidden-import=bs4 `
             --hidden-import=lxml `
             --hidden-import=cryptography `
-            --collect-all=PIL `
-            --collect-all=numpy `
-            --collect-all=pandas `
             launch_browser.py
 
-          Copy-Item kai-browser_logo.png dist\ -ErrorAction SilentlyContinue
-          Copy-Item DISCLAIMER.md dist\ -ErrorAction SilentlyContinue
-          Copy-Item README.md dist\ -ErrorAction SilentlyContinue
-          Copy-Item LICENSE.save dist\ -ErrorAction SilentlyContinue
-          Copy-Item TERMS_OF_SERVICE.md dist\ -ErrorAction SilentlyContinue
+          Copy-Item kai-browser_logo.png dist\kaibrowser\ -ErrorAction SilentlyContinue
+          Copy-Item DISCLAIMER.md dist\kaibrowser\ -ErrorAction SilentlyContinue
+          Copy-Item README.md dist\kaibrowser\ -ErrorAction SilentlyContinue
+          Copy-Item LICENSE.save dist\kaibrowser\ -ErrorAction SilentlyContinue
+          Copy-Item TERMS_OF_SERVICE.md dist\kaibrowser\ -ErrorAction SilentlyContinue
         shell: pwsh
 
       - name: Package Windows build
         run: |
-          Compress-Archive -Path dist\* -DestinationPath kaibrowser-windows.zip
+          Compress-Archive -Path dist\kaibrowser\* -DestinationPath kaibrowser-windows.zip
         shell: pwsh
 
       - name: Upload Windows artifact
