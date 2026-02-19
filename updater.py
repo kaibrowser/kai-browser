@@ -7,7 +7,7 @@ from PyQt6.QtCore import QThread, pyqtSignal, QUrl
 from PyQt6.QtWidgets import QMessageBox, QPushButton
 
 VERSION = "1.0.6"
-GITHUB_API = "https://api.github.com/repos/kaibrowser/kai-browser/releases/latest"
+GITHUB_API = "https://api.github.com/repos/kaibrowser/kaibrowser/releases/latest"
 DOWNLOAD_URL = "https://kaibrowser.com"
 
 
