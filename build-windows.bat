@@ -31,8 +31,10 @@ echo.
 :: Check if tag already exists on remote
 git ls-remote --tags origin | findstr "refs/tags/%TAG%" >nul 2>&1
 if %errorlevel%==0 (
-    echo X Tag %TAG% already exists on GitHub. Update VERSION in updater.py first.
-    exit /b 1
+    echo Tag %TAG% already exists on GitHub. Will upload to existing release.
+    set "TAG_EXISTS=1"
+) else (
+    set "TAG_EXISTS=0"
 )
 
 :: Install Nuitka if missing
@@ -97,20 +99,23 @@ if /i not "%CONFIRM%"=="y" (
     exit /b 0
 )
 
-:: Tag and push
-echo Creating tag %TAG%...
-git tag %TAG%
-git push origin %TAG%
-echo Tag pushed
-echo.
-
-:: Create GitHub release and upload
-echo Creating GitHub release...
-gh release create %TAG% kaibrowser-windows.zip ^
-    --title "Kai Browser %TAG%" ^
-    --notes "Kai Browser %VERSION% release" ^
-    --latest
-echo Release created
+:: Tag, release and upload
+if "!TAG_EXISTS!"=="1" (
+    echo Uploading to existing release %TAG%...
+    gh release upload %TAG% kaibrowser-windows.zip --clobber
+) else (
+    echo Creating tag %TAG%...
+    git tag %TAG%
+    git push origin %TAG%
+    echo Tag pushed
+    echo.
+    echo Creating GitHub release...
+    gh release create %TAG% kaibrowser-windows.zip ^
+        --title "Kai Browser %TAG%" ^
+        --notes "Kai Browser %VERSION% release" ^
+        --latest
+)
+echo Release updated
 echo.
 
 echo =====================================
