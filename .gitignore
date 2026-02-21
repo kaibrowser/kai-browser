@@ -10,3 +10,4 @@ notes/
 build/
 dist/
 kaibrowser.spec
+kaibrowser-linux.tar.gz
