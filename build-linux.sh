@@ -1,11 +1,9 @@
 #!/bin/bash
 set -e
-
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Kai Browser - Linux Build & Release"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-
 # Activate venv
 if [ -d "venv" ]; then
     source venv/bin/activate
@@ -13,7 +11,6 @@ else
     echo "✗ Virtual environment not found. Run 'python3 kaibrowser.py' first to create it."
     exit 1
 fi
-
 # Get version from updater.py
 VERSION=$(grep -oP 'VERSION\s*=\s*"\K[^"]+' updater.py)
 if [ -z "$VERSION" ]; then
@@ -23,13 +20,12 @@ fi
 TAG="v${VERSION}"
 echo "Version: $VERSION (tag: $TAG)"
 echo ""
-
 # Check if tag already exists on remote
+TAG_EXISTS=0
 if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-    echo "✗ Tag $TAG already exists on GitHub. Update VERSION in updater.py first."
-    exit 1
+    echo "Tag $TAG already exists on GitHub. Will upload to existing release."
+    TAG_EXISTS=1
 fi
-
 # Compile
 echo "→ Compiling with PyInstaller..."
 pyinstaller --onefile --windowed --name kaibrowser \
@@ -46,7 +42,6 @@ pyinstaller --onefile --windowed --name kaibrowser \
     launch_browser.py
 echo "✓ Build complete"
 echo ""
-
 # Copy files to dist
 echo "→ Copying files to dist..."
 cp kai-browser_logo.png dist/kaibrowser.png
@@ -59,13 +54,11 @@ cp install.sh dist/
 cp uninstall.sh dist/
 echo "✓ Files copied"
 echo ""
-
 # Package
 echo "→ Packaging archive..."
 tar -czf kaibrowser-linux.tar.gz --transform 's|^dist|kaibrowser|' dist/
 echo "✓ Created kaibrowser-linux.tar.gz"
 echo ""
-
 # Confirm release
 read -p "Push tag $TAG and create GitHub release? (y/n) " -n 1 -r
 echo ""
@@ -73,23 +66,24 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Build complete. Archive ready but not released."
     exit 0
 fi
-
-# Tag and push
-echo "→ Creating tag $TAG..."
-git tag "$TAG"
-git push origin "$TAG"
-echo "✓ Tag pushed"
+# Tag, release and upload
+if [ "$TAG_EXISTS" -eq 1 ]; then
+    echo "→ Uploading to existing release $TAG..."
+    gh release upload "$TAG" kaibrowser-linux.tar.gz --clobber
+else
+    echo "→ Creating tag $TAG..."
+    git tag "$TAG"
+    git push origin "$TAG"
+    echo "✓ Tag pushed"
+    echo ""
+    echo "→ Creating GitHub release..."
+    gh release create "$TAG" kaibrowser-linux.tar.gz \
+        --title "Kai Browser $TAG" \
+        --notes "Kai Browser $VERSION release" \
+        --latest
+fi
+echo "✓ Release updated"
 echo ""
-
-# Create GitHub release and upload
-echo "→ Creating GitHub release..."
-gh release create "$TAG" kaibrowser-linux.tar.gz \
-    --title "Kai Browser $TAG" \
-    --notes "Kai Browser $VERSION release" \
-    --latest
-echo "✓ Release created"
-echo ""
-
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Done! Released $TAG"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

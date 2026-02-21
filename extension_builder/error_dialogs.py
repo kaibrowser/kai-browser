@@ -65,67 +65,50 @@ def install_package(package_name, dependencies_dir):
             "sklearn": "scikit-learn",
             "skimage": "scikit-image",
         }
-
         pip_package = package_map.get(package_name, package_name)
         print(f"   pip_package = {pip_package}")
 
-        # Determine which Python to use
-        if getattr(sys, "frozen", False):
-            # Running from compiled binary - need to find system Python
-            print(f"   🔍 FROZEN MODE - Finding system Python...")
+        # Always search for a working Python with pip
+        print(f"   🔍 Finding Python...")
+        python_candidates = [
+            "py",
+            "python",
+            "python3",
+            r"C:\Python312\python.exe",
+            r"C:\Python311\python.exe",
+            r"C:\Python310\python.exe",
+            "/usr/bin/python3",
+            "/usr/bin/python",
+        ]
 
-            # Try common Python executables in order of preference
-            python_candidates = [
-                "python3",
-                "python",
-                "/usr/bin/python3",
-                "/usr/bin/python",
-            ]
-
-            python_exe = None
-            for candidate in python_candidates:
-                try:
-                    # Test if this python works with pip
-                    test_result = subprocess.run(
-                        [candidate, "-m", "pip", "--version"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    if test_result.returncode == 0:
-                        python_exe = candidate
-                        print(f"   ✅ Found working Python: {python_exe}")
-                        print(f"      pip version: {test_result.stdout.strip()}")
-                        break
-                except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
-                    print(f"   ❌ {candidate} failed: {e}")
-                    continue
-
-            if not python_exe:
-                return False, (
-                    "Could not find system Python. Please ensure Python 3 is installed.\n"
-                    "Try: sudo apt install python3-pip (Debian/Ubuntu) or equivalent"
+        python_exe = None
+        for candidate in python_candidates:
+            print(f"   🔍 Trying candidate: {candidate}")
+            try:
+                cmd = f'"{candidate}" -m pip --version'
+                test_result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=5, shell=True
                 )
-        else:
-            # Running from source - use current interpreter
-            python_exe = sys.executable
-            print(f"   ✅ SOURCE MODE - Using: {python_exe}")
+                if test_result.returncode == 0:
+                    python_exe = candidate
+                    print(f"   ✅ Found working Python: {python_exe}")
+                    print(f"      pip version: {test_result.stdout.strip()}")
+                    break
+            except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+                print(f"   ❌ {candidate} failed: {e}")
+                continue
+
+        if not python_exe:
+            return False, (
+                "Could not find system Python. Please ensure Python 3 is installed.\n"
+                "Try: sudo apt install python3-pip (Debian/Ubuntu) or equivalent"
+            )
 
         # Run pip install with increased timeout for large packages
         print(f"   🚀 Running pip install (timeout: 300s)...")
+        cmd = f'"{python_exe}" -m pip install --target "{str(dependencies_dir)}" {pip_package}'
         result = subprocess.run(
-            [
-                python_exe,
-                "-m",
-                "pip",
-                "install",
-                "--target",
-                str(dependencies_dir),
-                pip_package,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minutes for large packages like Pillow
+            cmd, capture_output=True, text=True, timeout=300, shell=True
         )
 
         if result.returncode == 0:
