@@ -3,6 +3,11 @@ Module Manager - Fixed to Support Natural Plugins
 Now detects both legacy KaiModule and natural plugin patterns
 """
 
+import sys
+import os
+import subprocess
+from pathlib import Path
+
 from PyQt6.QtWidgets import QMenu, QMessageBox, QToolButton
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QUrl
@@ -16,15 +21,12 @@ class ModuleManagerModule(KaiModule):
     def __init__(self):
         super().__init__()
         self.module_type = self.MODULE_TYPE_MANAGER
-        # Track natural plugin states
         self.natural_plugin_states = {}
 
     def setup(self):
         """Add the Extensions dropdown button to the toolbar"""
-        # Create the Extensions menu
         self.extensions_menu = QMenu(self.browser_core)
 
-        # Create a proper tool button with popup menu
         self.extensions_button = QToolButton(self.browser_core)
         self.extensions_button.setText("🧩")
         self.extensions_button.setToolTip("Extensions")
@@ -34,23 +36,54 @@ class ModuleManagerModule(KaiModule):
         )
         self.extensions_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
 
-        # Add the button to the toolbar
         self.add_toolbar_widget(self.extensions_button)
-
-        # Load saved states for natural plugins
         self._load_natural_plugin_states()
-
-        # Populate the menu with all loaded modules
         self.populate_menu()
-
         self.browser_core.show_status("Module Manager loaded", 2000)
+
+    def _get_modules_dir(self):
+        """Resolve modules directory for both frozen (compiled) and source versions"""
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).parent / "modules"
+        else:
+            return Path(__file__).parent / "modules"
+
+    def open_modules_folder(self):
+        """Open the modules folder in the system file explorer"""
+        modules_dir = self._get_modules_dir()
+
+        if not modules_dir.exists():
+            try:
+                modules_dir.mkdir(parents=True)
+            except Exception as e:
+                QMessageBox.warning(
+                    self.browser_core,
+                    "Folder Not Found",
+                    f"Could not find or create modules folder:\n{modules_dir}\n\n{e}",
+                )
+                return
+
+        try:
+            if sys.platform == "win32":
+                os.startfile(str(modules_dir))
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(modules_dir)])
+            else:
+                subprocess.Popen(["xdg-open", str(modules_dir)])
+
+            self.browser_core.show_status("📂 Opened extensions folder", 2000)
+        except Exception as e:
+            QMessageBox.warning(
+                self.browser_core,
+                "Error",
+                f"Failed to open folder:\n{modules_dir}\n\n{e}",
+            )
 
     def _load_natural_plugin_states(self):
         """Load saved enable/disable states for natural plugins"""
         for module in self.browser_core.modules:
             if not hasattr(module, "module_type"):
                 module_name = module.__class__.__name__
-                # Get saved state (default to True/enabled)
                 saved_state = self.browser_core.preferences.get_module_state(
                     module_name
                 )
@@ -58,7 +91,6 @@ class ModuleManagerModule(KaiModule):
                     saved_state = True
                 self.natural_plugin_states[id(module)] = saved_state
 
-                # Apply initial state
                 if not saved_state:
                     self._hide_natural_plugin(module)
 
@@ -66,7 +98,7 @@ class ModuleManagerModule(KaiModule):
         """Populate the menu with all loaded modules"""
         self.extensions_menu.clear()
 
-        # Clean up orphaned IDs from tracking
+        # Clean up orphaned IDs
         orphaned_ids = []
         for module_id in self.natural_plugin_states:
             found = any(id(m) == module_id for m in self.browser_core.modules)
@@ -93,18 +125,15 @@ class ModuleManagerModule(KaiModule):
         ui_modules = []
         background_modules = []
         natural_plugins = []
-        natural_background_plugins = []  # ← NEW
+        natural_background_plugins = []
 
         for module in self.browser_core.modules:
-            # Skip the module manager itself
             if isinstance(module, ModuleManagerModule):
                 continue
 
-            # Check if it's a natural plugin (no 'module_type' attribute)
             if not hasattr(module, "module_type"):
-                # Check if it's a background plugin
                 if hasattr(module, "is_background") and module.is_background:
-                    natural_background_plugins.append(module)  # ← NEW
+                    natural_background_plugins.append(module)
                 else:
                     natural_plugins.append(module)
             elif module.module_type == KaiModule.MODULE_TYPE_UI:
@@ -112,16 +141,18 @@ class ModuleManagerModule(KaiModule):
             elif module.module_type == KaiModule.MODULE_TYPE_BACKGROUND:
                 background_modules.append(module)
 
-        # Sort alphabetically by class name
+        # Sort alphabetically
         ui_modules.sort(key=lambda m: m.__class__.__name__)
         background_modules.sort(key=lambda m: m.__class__.__name__)
         natural_plugins.sort(key=lambda m: m.__class__.__name__)
-        natural_background_plugins.sort(key=lambda m: m.__class__.__name__)  # ← NEW
+        natural_background_plugins.sort(key=lambda m: m.__class__.__name__)
 
-        # Add Natural Plugins section (new pattern)
+        # My Extensions section — header is clickable to open folder
         if natural_plugins:
             header = QAction("📦 My Extensions", self.browser_core)
-            header.setEnabled(False)
+            header.setEnabled(True)
+            header.setToolTip("Open extensions folder")
+            header.triggered.connect(self.open_modules_folder)
             self.extensions_menu.addAction(header)
 
             for module in natural_plugins:
@@ -129,7 +160,7 @@ class ModuleManagerModule(KaiModule):
 
             self.extensions_menu.addSeparator()
 
-        # Add Natural Background Plugins section ← NEW SECTION
+        # Background Extensions section
         if natural_background_plugins:
             header = QAction("🔧 Background Extensions", self.browser_core)
             header.setEnabled(False)
@@ -140,7 +171,7 @@ class ModuleManagerModule(KaiModule):
 
             self.extensions_menu.addSeparator()
 
-        # Add UI Extensions section
+        # System Extensions section
         if ui_modules:
             header = QAction("⚙️ System Extensions", self.browser_core)
             header.setEnabled(False)
@@ -151,7 +182,7 @@ class ModuleManagerModule(KaiModule):
 
             self.extensions_menu.addSeparator()
 
-        # Add Legacy Background Extensions section (if any exist)
+        # Legacy Background Extensions section
         if background_modules:
             header = QAction("🔧 Background Extensions (Legacy)", self.browser_core)
             header.setEnabled(False)
@@ -162,7 +193,7 @@ class ModuleManagerModule(KaiModule):
 
             self.extensions_menu.addSeparator()
 
-        # Add info option
+        # About
         info_action = QAction("ℹ️  About", self.browser_core)
         info_action.triggered.connect(self.show_info)
         self.extensions_menu.addAction(info_action)
@@ -179,33 +210,24 @@ class ModuleManagerModule(KaiModule):
 
     def _add_natural_plugin_action(self, module):
         """Add a natural plugin to the menu with enable/disable support"""
-        # Get the class name
         class_name = module.__class__.__name__
-
-        # Try to get module file name (more reliable for natural plugins)
         module_file = module.__class__.__module__.split(".")[-1]
 
-        # Use file name if available, otherwise use class name
         if module_file and module_file != "__main__":
-            # Convert file_name to Title Case
             module_name = module_file.replace("_", " ").title()
         else:
-            # Fallback to class name
             module_name = class_name.replace("Plugin", "").replace("Module", "")
             module_name = module_name.replace("_", " ").title()
 
-        # If still empty, use class name as-is
         if not module_name.strip():
             module_name = class_name
 
         action = QAction(f"  {module_name}", self.browser_core)
         action.setCheckable(True)
 
-        # Get current state
         is_enabled = self.natural_plugin_states.get(id(module), True)
         action.setChecked(is_enabled)
 
-        # NOW ENABLED - can toggle
         action.triggered.connect(
             lambda checked, m=module: self.toggle_natural_plugin(m, checked)
         )
@@ -221,7 +243,6 @@ class ModuleManagerModule(KaiModule):
         action.setCheckable(True)
         action.setChecked(module.enabled)
 
-        # Connect to enable/disable function
         action.triggered.connect(
             lambda checked, m=module: self.toggle_module(m, checked)
         )
@@ -245,25 +266,15 @@ class ModuleManagerModule(KaiModule):
             "Module", ""
         )
 
-        # Update state
         self.natural_plugin_states[id(module)] = enabled
-
-        # Save to preferences
         self.browser_core.preferences.set_module_state(
             module.__class__.__name__, enabled
         )
 
         if enabled:
-            # Call activate if it exists
-            # if hasattr(module, "activate"):
-            #     try:
-            #         module.activate()
-            #     except Exception as e:
-            #         print(f"⚠️ Failed to activate {module_name}: {e}")
             self._show_natural_plugin(module)
             self.browser_core.show_status(f"✓ {module_name} enabled")
         else:
-            # Call deactivate if it exists
             if hasattr(module, "deactivate"):
                 try:
                     module.deactivate()
@@ -274,22 +285,18 @@ class ModuleManagerModule(KaiModule):
 
     def _show_natural_plugin(self, module):
         """Show a natural plugin's UI elements"""
-        # Show all tracked actions/widgets
         if hasattr(module, "_tracked_actions"):
             for action in module._tracked_actions:
                 action.setVisible(True)
-                # Also show the widget if it has one
                 widget = self.browser_core.navbar.widgetForAction(action)
                 if widget:
                     widget.setVisible(True)
 
     def _hide_natural_plugin(self, module):
         """Hide a natural plugin's UI elements"""
-        # Hide all tracked actions/widgets
         if hasattr(module, "_tracked_actions"):
             for action in module._tracked_actions:
                 action.setVisible(False)
-                # Also hide the widget if it has one
                 widget = self.browser_core.navbar.widgetForAction(action)
                 if widget:
                     widget.setVisible(False)

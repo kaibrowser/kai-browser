@@ -5,6 +5,9 @@ View, edit, reload, delete, and send to AI for improvements
 This file lives in: extension_builder/manage_tab.py
 """
 
+import sys
+import os
+import subprocess
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -16,6 +19,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QInputDialog,
 )
+from PyQt6.QtWidgets import QMenu
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QTimer
 from .utils import ModuleLoader
 from .error_dialogs import show_error_dialog_with_actions
@@ -32,6 +37,130 @@ class ManageTab(QWidget):
 
         self.setup_ui()
         self.refresh_module_list()
+
+    def show_context_menu(self, pos):
+        """Show right-click context menu on extension list item"""
+        item = self.module_list.itemAt(pos)
+        if not item or not item.data(Qt.ItemDataRole.UserRole):
+            return
+
+        menu = QMenu(self)
+
+        open_action = QAction("📂 Open Extensions Folder", self)
+        open_action.triggered.connect(self.open_modules_folder)
+        menu.addAction(open_action)
+
+        menu.addSeparator()
+
+        reload_action = QAction("🔄 Reload", self)
+        reload_action.triggered.connect(self.reload_selected_module)
+        menu.addAction(reload_action)
+
+        menu.addSeparator()
+
+        ai_improve_action = QAction("✨ AI Improve", self)
+        ai_improve_action.triggered.connect(self.send_to_ai_for_improvement)
+        menu.addAction(ai_improve_action)
+
+        ai_fix_action = QAction("✨ AI Fix", self)
+        ai_fix_action.triggered.connect(self.send_to_ai_for_fix)
+        menu.addAction(ai_fix_action)
+
+        rename_action = QAction("✏️ Rename", self)
+        rename_action.triggered.connect(self.rename_selected_module)
+        menu.addAction(rename_action)
+
+        menu.addSeparator()
+
+        delete_action = QAction("🗑️ Delete", self)
+        delete_action.triggered.connect(self.delete_selected_module)
+        menu.addAction(delete_action)
+
+        menu.exec(self.module_list.viewport().mapToGlobal(pos))
+
+    def open_modules_folder(self):
+        """Open modules folder in system file explorer — works for frozen and source"""
+        # self.modules_dir is already resolved correctly (passed in at init)
+        modules_dir = self.modules_dir
+
+        if not modules_dir.exists():
+            try:
+                modules_dir.mkdir(parents=True)
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "Folder Not Found",
+                    f"Could not find or create modules folder:\n{modules_dir}\n\n{e}",
+                )
+                return
+
+        try:
+            if sys.platform == "win32":
+                os.startfile(str(modules_dir))
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(modules_dir)])
+            else:
+                subprocess.Popen(["xdg-open", str(modules_dir)])
+
+            self.browser_core.show_status("📂 Opened extensions folder", 2000)
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Error", f"Failed to open folder:\n{modules_dir}\n\n{e}"
+            )
+
+    def rename_selected_module(self):
+        """Rename an extension file and reload it"""
+        current_item = self.module_list.currentItem()
+        if not current_item:
+            return
+
+        filepath = current_item.data(Qt.ItemDataRole.UserRole)
+        if not filepath:
+            return
+
+        old_name = filepath.stem
+
+        new_name, ok = QInputDialog.getText(
+            self, "Rename Extension", f"Enter new name for '{old_name}':", text=old_name
+        )
+
+        if not ok or not new_name.strip():
+            return
+
+        new_name = new_name.strip().replace(" ", "_")
+        new_path = filepath.parent / f"{new_name}.py"
+
+        if new_path.exists():
+            QMessageBox.warning(
+                self,
+                "Name Taken",
+                f"An extension named '{new_name}.py' already exists.\nPlease choose a different name.",
+            )
+            return
+
+        try:
+            # Unload if currently loaded
+            module_instance = self.get_loaded_module(old_name)
+            if module_instance:
+                self.loader.unload_module(module_instance)
+
+            # Rename file
+            filepath.rename(new_path)
+
+            # Reload with new name
+            success, error_info = self.loader.hot_load_module(new_name)
+            if success:
+                self.loader.refresh_module_manager()
+                self.browser_core.show_status(f"✏️ Renamed to {new_name}.py", 2000)
+            else:
+                self.browser_core.show_status(
+                    f"✏️ Renamed but could not reload {new_name}", 2000
+                )
+
+            self.refresh_module_list()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to rename:\n{e}")
 
     def setup_ui(self):
         """Set up the manage extensions interface"""
@@ -75,6 +204,8 @@ class ManageTab(QWidget):
     }
         """
         )
+        self.module_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.module_list.customContextMenuRequested.connect(self.show_context_menu)
         self.module_list.itemDoubleClicked.connect(self.edit_selected_module)
         layout.addWidget(self.module_list)
 
