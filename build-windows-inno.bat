@@ -98,7 +98,7 @@ echo AppPublisher={#MyAppPublisher}
 echo AppPublisherURL={#MyAppURL}
 echo AppSupportURL={#MyAppURL}
 echo AppUpdatesURL={#MyAppURL}
-echo DefaultDirName={autopf}\{#MyAppName}
+echo DefaultDirName={localappdata}\{#MyAppName}
 echo DefaultGroupName={#MyAppName}
 echo AllowNoIcons=yes
 echo OutputDir=.
@@ -107,7 +107,7 @@ echo SetupIconFile=kai-browser_logo.ico
 echo Compression=lzma
 echo SolidCompression=yes
 echo WizardStyle=modern
-echo PrivilegesRequiredOverridesAllowed=dialog
+echo PrivilegesRequired=lowest
 echo.
 echo [Languages]
 echo Name: "english"; MessagesFile: "compiler:Default.isl"
