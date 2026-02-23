@@ -85,6 +85,7 @@ class GeminiProvider(AIProvider):
     def get_provider_name(self) -> str:
         return "Gemini"
 
+    ## Add new models for Gemini here
     def get_available_models(self) -> list:
         return [
             ("gemini-2.5-flash", "Gemini 2.5 Flash"),
@@ -118,6 +119,7 @@ class GeminiProvider(AIProvider):
             response = requests.post(
                 url, json=payload, stream=True, timeout=self.timeout
             )
+            print(response.status_code, response.text[:500])
 
             if response.status_code != 200:
                 error_msg = f"API error: {response.status_code}"
@@ -164,15 +166,17 @@ class ClaudeProvider(AIProvider):
 
     API_URL = "https://api.anthropic.com/v1/messages"
 
-    def __init__(self, api_key=None, model="claude-sonnet-4-5-20250929"):
+    def __init__(self, api_key=None, model="claude-sonnet-4-6"):
         super().__init__(api_key)
         self.model = model
 
     def get_provider_name(self) -> str:
         return "Claude"
 
+    ## Add new models for claude here
     def get_available_models(self) -> list:
         return [
+            ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
             ("claude-opus-4-5-20251101", "Claude Opus 4.5"),
             ("claude-sonnet-4-5-20250929", "Claude Sonnet 4.5"),
             ("claude-haiku-4-5-20251001", "Claude 4.5 Haiku"),
@@ -211,6 +215,7 @@ class ClaudeProvider(AIProvider):
                 stream=True,
                 timeout=self.timeout,
             )
+            print(response.status_code, response.text[:500])
 
             if response.status_code != 200:
                 error_msg = f"API error: {response.status_code}"
@@ -260,15 +265,18 @@ class OpenAIProvider(AIProvider):
 
     API_URL = "https://api.openai.com/v1/chat/completions"
 
-    def __init__(self, api_key=None, model="gpt-4.1"):
+    def __init__(self, api_key=None, model="gpt-5.2"):
         super().__init__(api_key)
         self.model = model
 
     def get_provider_name(self) -> str:
         return "OpenAI"
 
+    ## Add new models for OpenAI here
     def get_available_models(self) -> list:
         return [
+            ("gpt-5.2", "GPT-5.2"),
+            ("gpt-5-nano-2025-08-07", "GPT-5 Nano"),
             ("gpt-4.1", "GPT-4.1"),
         ]
 
@@ -290,10 +298,16 @@ class OpenAIProvider(AIProvider):
             payload = {
                 "model": self.model,
                 "messages": [{"role": "user", "content": full_prompt}],
-                "temperature": 0.7,
-                "max_tokens": 8192,
                 "stream": True,
             }
+
+            # Newer models require max_completion_tokens, older use max_tokens
+            new_models = ("gpt-5", "o1", "o3", "o4")
+            if self.model.startswith(new_models):
+                payload["max_completion_tokens"] = 8192
+            else:
+                payload["max_tokens"] = 8192
+                payload["temperature"] = 0.7
 
             callback({"type": "start", "content": ""})
 
@@ -305,6 +319,7 @@ class OpenAIProvider(AIProvider):
                 stream=True,
                 timeout=self.timeout,
             )
+            print(response.status_code, response.text[:500])
 
             if response.status_code != 200:
                 error_msg = f"API error: {response.status_code}"
