@@ -1,6 +1,6 @@
 """
 AI Providers - Real Streaming Support
-Consolidated version - duplicate code moved to base class
+Fixed: Removed response.text calls that broke streaming
 """
 
 import requests
@@ -40,7 +40,6 @@ class AIProvider(ABC):
         """Return list of available models for this provider"""
         pass
 
-    # CONSOLIDATED: Non-streaming fallback (was duplicated in all 3 providers)
     def generate_module(self, prompt: str, module_context: dict) -> dict:
         """Non-streaming fallback - collects chunks from streaming"""
         chunks = []
@@ -56,7 +55,6 @@ class AIProvider(ABC):
 
         return result
 
-    # CONSOLIDATED: Fallback prompt builder (was duplicated in all 3 providers)
     def _build_fallback_prompt(self, prompt: str, context: dict) -> str:
         """Build basic prompt when AIExamples not available"""
         base_prompt = f"User request: {prompt}\n\n"
@@ -64,7 +62,6 @@ class AIProvider(ABC):
             base_prompt += f"MODIFY THIS EXISTING CODE:\n```python\n{context['current_code']}\n```\n\n"
         return base_prompt
 
-    # CONSOLIDATED: Prompt building logic (was duplicated)
     def _build_prompt(self, prompt: str, module_context: dict) -> str:
         """Build full prompt using AIExamples if available, fallback otherwise"""
         if EXAMPLES_AVAILABLE:
@@ -85,7 +82,6 @@ class GeminiProvider(AIProvider):
     def get_provider_name(self) -> str:
         return "Gemini"
 
-    ## Add new models for Gemini here
     def get_available_models(self) -> list:
         return [
             ("gemini-2.5-flash", "Gemini 2.5 Flash"),
@@ -98,10 +94,8 @@ class GeminiProvider(AIProvider):
                 callback({"type": "error", "content": "No API key"})
                 return {"success": False, "error": "No API key"}
 
-            # Build prompt using consolidated method
             full_prompt = self._build_prompt(prompt, module_context)
 
-            # Streaming endpoint
             url = f"{self.API_URL}/{self.model}:streamGenerateContent?key={self.api_key}&alt=sse"
 
             payload = {
@@ -115,25 +109,24 @@ class GeminiProvider(AIProvider):
 
             callback({"type": "start", "content": ""})
 
-            # Stream response
-            response = requests.post(
-                url, json=payload, stream=True, timeout=self.timeout
-            )
-            print(response.status_code, response.text[:500])
+            response = requests.post(url, json=payload, stream=True, timeout=(10, 30))
+
+            # FIXED: Only log status code, don't consume stream
+            print(f"Gemini API Status: {response.status_code}")
 
             if response.status_code != 200:
-                error_msg = f"API error: {response.status_code}"
+                # Only read response body on error
+                error_text = response.text
+                error_msg = f"API error: {response.status_code} - {error_text}"
                 callback({"type": "error", "content": error_msg})
                 return {"success": False, "error": error_msg}
 
             full_code = ""
 
-            # Process SSE stream
             for line in response.iter_lines():
                 if line:
                     line_text = line.decode("utf-8")
 
-                    # Skip SSE formatting
                     if line_text.startswith("data: "):
                         data_json = line_text[6:]
 
@@ -173,7 +166,6 @@ class ClaudeProvider(AIProvider):
     def get_provider_name(self) -> str:
         return "Claude"
 
-    ## Add new models for claude here
     def get_available_models(self) -> list:
         return [
             ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
@@ -189,7 +181,6 @@ class ClaudeProvider(AIProvider):
                 callback({"type": "error", "content": "No API key"})
                 return {"success": False, "error": "No API key"}
 
-            # Build prompt using consolidated method
             full_prompt = self._build_prompt(prompt, module_context)
 
             headers = {
@@ -207,40 +198,39 @@ class ClaudeProvider(AIProvider):
 
             callback({"type": "start", "content": ""})
 
-            # Stream response
             response = requests.post(
                 self.API_URL,
                 headers=headers,
                 json=payload,
                 stream=True,
-                timeout=self.timeout,
+                timeout=(10, 30),
             )
-            print(response.status_code, response.text[:500])
+
+            # FIXED: Only log status code, don't consume stream
+            print(f"Claude API Status: {response.status_code}")
 
             if response.status_code != 200:
-                error_msg = f"API error: {response.status_code}"
+                # Only read response body on error
+                error_text = response.text
+                error_msg = f"API error: {response.status_code} - {error_text}"
                 callback({"type": "error", "content": error_msg})
                 return {"success": False, "error": error_msg}
 
             full_code = ""
 
-            # Process SSE stream
             for line in response.iter_lines():
                 if line:
                     line_text = line.decode("utf-8")
 
-                    # Skip SSE formatting
                     if line_text.startswith("data: "):
                         data_json = line_text[6:]
 
-                        # Skip ping events
                         if data_json.strip() == "[DONE]":
                             continue
 
                         try:
                             data = json.loads(data_json)
 
-                            # Handle different event types
                             if data.get("type") == "content_block_delta":
                                 delta = data.get("delta", {})
                                 if delta.get("type") == "text_delta":
@@ -272,7 +262,6 @@ class OpenAIProvider(AIProvider):
     def get_provider_name(self) -> str:
         return "OpenAI"
 
-    ## Add new models for OpenAI here
     def get_available_models(self) -> list:
         return [
             ("gpt-5.2", "GPT-5.2"),
@@ -287,7 +276,6 @@ class OpenAIProvider(AIProvider):
                 callback({"type": "error", "content": "No API key"})
                 return {"success": False, "error": "No API key"}
 
-            # Build prompt using consolidated method
             full_prompt = self._build_prompt(prompt, module_context)
 
             headers = {
@@ -301,7 +289,6 @@ class OpenAIProvider(AIProvider):
                 "stream": True,
             }
 
-            # Newer models require max_completion_tokens, older use max_tokens
             new_models = ("gpt-5", "o1", "o3", "o4")
             if self.model.startswith(new_models):
                 payload["max_completion_tokens"] = 8192
@@ -311,33 +298,33 @@ class OpenAIProvider(AIProvider):
 
             callback({"type": "start", "content": ""})
 
-            # Stream response
             response = requests.post(
                 self.API_URL,
                 headers=headers,
                 json=payload,
                 stream=True,
-                timeout=self.timeout,
+                timeout=(10, 30),
             )
-            print(response.status_code, response.text[:500])
+
+            # FIXED: Only log status code, don't consume stream
+            print(f"OpenAI API Status: {response.status_code}")
 
             if response.status_code != 200:
-                error_msg = f"API error: {response.status_code}"
+                # Only read response body on error
+                error_text = response.text
+                error_msg = f"API error: {response.status_code} - {error_text}"
                 callback({"type": "error", "content": error_msg})
                 return {"success": False, "error": error_msg}
 
             full_code = ""
 
-            # Process SSE stream
             for line in response.iter_lines():
                 if line:
                     line_text = line.decode("utf-8")
 
-                    # Skip SSE formatting
                     if line_text.startswith("data: "):
                         data_json = line_text[6:]
 
-                        # Skip done marker
                         if data_json.strip() == "[DONE]":
                             continue
 

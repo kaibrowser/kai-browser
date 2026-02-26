@@ -409,7 +409,7 @@ class AIStreamingThread(QThread):
     error = pyqtSignal(str, str, bool)  # error_type, message, can_retry
     retry_attempt = pyqtSignal(int, int)  # current_attempt, max_attempts
 
-    def __init__(self, provider, prompt, context, timeout=10, max_retries=3):
+    def __init__(self, provider, prompt, context, timeout=30, max_retries=3):
         super().__init__()
         self.provider = provider
         self.prompt = prompt
@@ -422,7 +422,7 @@ class AIStreamingThread(QThread):
         self.last_chunk_time = 0
         self.is_streaming = False
         self.total_tokens = 0
-        self.stall_threshold = 5
+        self.stall_threshold = 15
         self.should_stop = False
         self.generation_stopped = False
 
@@ -462,16 +462,13 @@ class AIStreamingThread(QThread):
 
     def _attempt_generation(self):
         """Single generation attempt with section parsing"""
+        result_container = {"result": None, "exception": None, "completed": False}
         try:
             self.progress.emit("Connecting to AI...")
             self.last_chunk_time = time.time()
             self.parser.reset()
             self.generation_stopped = False
             self.chat_sent = False
-
-            # timeout_timer = QTimer()
-            # timeout_timer.timeout.connect(self._check_timeout)
-            # timeout_timer.start(1000)
 
             def handle_stream_event(event):
                 if self.should_stop:
@@ -489,41 +486,32 @@ class AIStreamingThread(QThread):
                 elif event_type == "chunk":
                     self.last_chunk_time = time.time()
 
-                    # Parse the chunk
                     parsed = self.parser.add_chunk(content)
 
-                    # Emit chat message when complete
                     if parsed["chat"] and not self.chat_sent:
                         self.chat_message.emit(parsed["chat"])
                         self.chat_sent = True
                         self.progress.emit("Generating code...")
 
-                    # Emit code chunks for live preview
                     if parsed["code_chunk"]:
                         if (
                             parsed["section_changed"]
                             and "code_started" in self.parser.sections_found
                         ):
-                            # Clear preview when code section starts
                             self.chunk.emit("__CLEAR__")
                         self.chunk.emit(parsed["code_chunk"])
 
                 elif event_type == "done":
                     self.is_streaming = False
                     self.progress.emit("Complete!")
-                    # timeout_timer.stop()
 
                 elif event_type == "error":
                     self.is_streaming = False
                     error_type = self._categorize_error(content)
                     self._handle_error(error_type, content)
-                    # timeout_timer.stop()
 
                 if "tokens" in event:
                     self.total_tokens = event["tokens"]
-
-            # Run generation in background thread
-            result_container = {"result": None, "exception": None, "completed": False}
 
             def run_generation():
                 try:
@@ -539,11 +527,20 @@ class AIStreamingThread(QThread):
             gen_thread = threading.Thread(target=run_generation, daemon=True)
             gen_thread.start()
 
-            # Monitor for completion or stop signal
+            # Monitor for completion, stall, or stop
             while not result_container["completed"] and not self.should_stop:
                 time.sleep(0.1)
-
-            # timeout_timer.stop()
+                if self.is_streaming:
+                    elapsed = time.time() - self.last_chunk_time
+                    if elapsed > self.stall_threshold:
+                        self.progress.emit(f"⚠️ Connection slow ({int(elapsed)}s)...")
+                    if elapsed > self.timeout:
+                        self.generation_stopped = True
+                        self.is_streaming = False
+                        self._handle_error(
+                            "stalled", f"No response for {self.timeout}s"
+                        )
+                        return False
 
             if self.should_stop:
                 self.generation_stopped = True
@@ -556,15 +553,12 @@ class AIStreamingThread(QThread):
             result = result_container["result"]
 
             if result and result.get("success"):
-                # Get final parsed result
                 final = self.parser.get_final_result()
-
                 result["code"] = final["code"]
                 result["chat"] = final["chat"]
                 result["requirements"] = final["requirements"]
                 result["packages_to_install"] = final["packages_to_install"]
                 result["tokens"] = self.total_tokens
-
                 self.finished.emit(result)
                 return True
 
