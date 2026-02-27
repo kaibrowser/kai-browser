@@ -570,6 +570,12 @@ class ModuleLoader:
         QTimer.singleShot(50, do_refresh)
 
 
+"""
+Code templates for different extension types - Updated 27/02/26 to match AI example standards
+"""
+from pathlib import Path
+
+
 class CodeTemplates:
     """Code templates for different extension types"""
 
@@ -578,6 +584,8 @@ class CodeTemplates:
 \"\"\"
 from PyQt6.QtWidgets import QToolButton, QMenu
 from PyQt6.QtGui import QAction
+from pathlib import Path
+import json
 
 
 class {class_name}:
@@ -586,6 +594,11 @@ class {class_name}:
     def __init__(self, browser):
         self.browser = browser
         self.toolbar = browser.toolbar
+        
+        # Data persistence - organized location
+        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_file = data_dir / "data.json"
     
     def activate(self):
         \"\"\"Set up your extension\"\"\"
@@ -601,11 +614,25 @@ class {class_name}:
         web_view = self.browser.get_active_web_view()
         url = web_view.url().toString() if web_view else "No active tab"
         print(f"🎯 Button clicked! Current URL: {{url}}")
+    
+    def load_data(self):
+        \"\"\"Load saved data\"\"\"
+        if self.data_file.exists():
+            with open(self.data_file, encoding='utf-8') as f:
+                return json.load(f)
+        return {{}}
+    
+    def save_data(self, data):
+        \"\"\"Save data to disk\"\"\"
+        with open(self.data_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
 """
 
     BACKGROUND = """\"\"\"
 {description}
 \"\"\"
+from pathlib import Path
+import json
 
 
 class {class_name}:
@@ -615,6 +642,11 @@ class {class_name}:
         self.browser = browser
         self.is_background = True
         self._connections = []  # Track signal connections
+        
+        # Data persistence - organized location
+        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_file = data_dir / "data.json"
     
     def activate(self):
         \"\"\"Set up background monitoring on all tabs\"\"\"
@@ -637,8 +669,8 @@ class {class_name}:
         for web_view, signal, slot in self._connections:
             try:
                 signal.disconnect(slot)
-            except:
-                pass
+            except TypeError:
+                pass  # Already disconnected
         self._connections.clear()
         
         # Restore original create_new_tab
@@ -674,13 +706,27 @@ class {class_name}:
                 if "example.com" in url:
                     print("Detected example.com!")
                 break
+    
+    def load_data(self):
+        \"\"\"Load saved data\"\"\"
+        if self.data_file.exists():
+            with open(self.data_file, encoding='utf-8') as f:
+                return json.load(f)
+        return {{}}
+    
+    def save_data(self, data):
+        \"\"\"Save data to disk\"\"\"
+        with open(self.data_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
 """
 
     INJECTOR = """\"\"\"
 {description}
 \"\"\"
-from PyQt6.QtWidgets import QToolButton, QMenu
+from PyQt6.QtWidgets import QToolButton
 from PyQt6.QtGui import QAction
+from pathlib import Path
+import json
 
 
 class {class_name}:
@@ -690,26 +736,38 @@ class {class_name}:
         self.browser = browser
         self.toolbar = browser.toolbar
         self.inject_enabled = False
+        self._connections = []
+        
+        # Data persistence - organized location
+        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_file = data_dir / "data.json"
+        
+        # Load saved state
+        saved = self.load_data()
+        self.inject_enabled = saved.get('enabled', False)
     
     def activate(self):
         \"\"\"Set up injector with toggle button\"\"\"
-        button = QToolButton()
-        button.setText("💉 Inject JS")
-        button.setCheckable(True)
-        button.setChecked(self.inject_enabled)
-        button.toggled.connect(self.toggle_inject)
-        self.toolbar.addWidget(button)
+        self.button = QToolButton()
+        self.button.setText("💉 Inject JS")
+        self.button.setCheckable(True)
+        self.button.setChecked(self.inject_enabled)
+        self.button.toggled.connect(self.toggle_inject)
+        self.toolbar.addWidget(self.button)
         
-        # Monitor page loads
-        web_view = self.browser.get_active_web_view()
-        if web_view:
+        # Monitor all tabs
+        for tab in self.browser.tabs:
+            web_view = tab.get_web_view()
             web_view.loadFinished.connect(self.on_page_load)
+            self._connections.append((web_view, web_view.loadFinished, self.on_page_load))
         
         print("✅ {class_name} ready")
     
     def toggle_inject(self, checked):
         \"\"\"Toggle auto-injection on/off\"\"\"
         self.inject_enabled = checked
+        self.save_data({{'enabled': checked}})
         status = "enabled" if checked else "disabled"
         print(f"Auto-inject {{status}}")
     
@@ -727,14 +785,30 @@ class {class_name}:
         }})();
         '''
         
-        web_view = self.browser.get_active_web_view()
-        if web_view:
-            web_view.page().runJavaScript(js_code)
+        sender = self.browser.sender()
+        for tab in self.browser.tabs:
+            if tab.get_web_view() == sender:
+                tab.get_web_view().page().runJavaScript(js_code)
+                break
+    
+    def load_data(self):
+        \"\"\"Load saved data\"\"\"
+        if self.data_file.exists():
+            with open(self.data_file, encoding='utf-8') as f:
+                return json.load(f)
+        return {{}}
+    
+    def save_data(self, data):
+        \"\"\"Save data to disk\"\"\"
+        with open(self.data_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
 """
 
     BLANK = """\"\"\"
 {description}
 \"\"\"
+from pathlib import Path
+import json
 
 
 class {class_name}:
@@ -742,11 +816,28 @@ class {class_name}:
     
     def __init__(self, browser):
         self.browser = browser
+        
+        # Data persistence - organized location
+        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_file = data_dir / "data.json"
     
     def activate(self):
         \"\"\"Set up your extension\"\"\"
         # Your code here
         pass
+    
+    def load_data(self):
+        \"\"\"Load saved data\"\"\"
+        if self.data_file.exists():
+            with open(self.data_file, encoding='utf-8') as f:
+                return json.load(f)
+        return {{}}
+    
+    def save_data(self, data):
+        \"\"\"Save data to disk\"\"\"
+        with open(self.data_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
 """
 
     @classmethod
