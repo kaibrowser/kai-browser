@@ -4,13 +4,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Kai Browser Installation"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-
 INSTALL_DIR="$HOME/.local/share/kaibrowser"
 BIN_DIR="$HOME/.local/bin"
-
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$BIN_DIR"
-
 echo "→ Installing application files..."
 cp kaibrowser "$INSTALL_DIR/" || { echo "✗ Failed to copy kaibrowser"; exit 1; }
 cp kaibrowser.png "$INSTALL_DIR/" 2>/dev/null
@@ -19,21 +16,30 @@ cp README.md "$INSTALL_DIR/" 2>/dev/null
 cp LICENSE.save "$INSTALL_DIR/" 2>/dev/null
 cp TERMS_OF_SERVICE.md "$INSTALL_DIR/" 2>/dev/null
 chmod +x "$INSTALL_DIR/kaibrowser"
-
 cat > "$BIN_DIR/kaibrowser" << 'WRAPPER'
 #!/bin/bash
 exec "$HOME/.local/share/kaibrowser/kaibrowser" "$@"
 WRAPPER
 chmod +x "$BIN_DIR/kaibrowser"
 echo "✓ Installed to $INSTALL_DIR"
-
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-    echo ""
-    echo "⚠ WARNING: $BIN_DIR is not in your PATH"
-    echo "Add this line to your shell config (~/.bashrc or ~/.zshrc):"
-    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    SHELL_CONFIG=""
+    if [ -f "$HOME/.zshrc" ]; then
+        SHELL_CONFIG="$HOME/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+        SHELL_CONFIG="$HOME/.bashrc"
+    fi
+    if [ -n "$SHELL_CONFIG" ]; then
+        echo "" >> "$SHELL_CONFIG"
+        echo "# Added by Kai Browser installer" >> "$SHELL_CONFIG"
+        echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$SHELL_CONFIG"
+        echo "✓ PATH updated in $SHELL_CONFIG"
+        echo "  Run: source $SHELL_CONFIG"
+    else
+        echo "⚠ Could not find shell config. Add manually:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    fi
 fi
-
 mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/kaibrowser.desktop" << DESKTOPEOF
 [Desktop Entry]
@@ -47,7 +53,6 @@ Terminal=false
 Categories=Network;WebBrowser;
 DESKTOPEOF
 echo "✓ Added to applications menu"
-
 if [ -d ~/Desktop ]; then
     read -p "Create desktop shortcut? (y/n) " -n 1 -r
     echo ""
@@ -60,7 +65,6 @@ if [ -d ~/Desktop ]; then
         echo "✓ Desktop shortcut created"
     fi
 fi
-
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Installation Complete!"
