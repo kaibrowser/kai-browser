@@ -12,7 +12,11 @@ A Python-based browser where you can create custom extensions using natural lang
 
 ## Quick Start (Source)
 
-Requires Python 3.12+
+Linux — tested on Ubuntu, Kali Linux, Linux Mint
+Windows — tested on Windows 10, 11
+macOS — untested, may work
+Python 3.12+ — required for source installation
+python3-venv — required on Debian/Ubuntu/Mint: sudo apt install python3-venv
 
 ```bash
 git clone https://github.com/kaibrowser/kaibrowser.git
@@ -61,6 +65,8 @@ Extract the zip and run `kaibrowser.exe`.
 - **Windows** — tested on Windows 10, 11
 - **macOS** — untested, may work
 - **Python 3.12+** — required for source installation
+- **python3-venv** — required on Debian/Ubuntu/Mint: sudo apt install python3-venv
+- **libxcb-cursor0** - sudo apt install libxcb-cursor0  
 
 ---
 
