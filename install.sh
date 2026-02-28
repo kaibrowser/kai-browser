@@ -43,7 +43,7 @@ fi
 mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/kaibrowser.desktop" << DESKTOPEOF
 [Desktop Entry]
-Version=1.0.5
+Version=1.0.8
 Type=Application
 Name=Kai Browser
 Comment=AI-powered extensible browser
