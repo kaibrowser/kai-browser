@@ -11,6 +11,11 @@ else
     echo "✗ Virtual environment not found. Run 'python3 kaibrowser.py' first to create it."
     exit 1
 fi
+# Ensure PyInstaller is installed
+echo "→ Checking PyInstaller..."
+pip install pyinstaller -q
+echo "✓ PyInstaller ready"
+echo ""
 # Get version from updater.py
 VERSION=$(grep -oP 'VERSION\s*=\s*"\K[^"]+' updater.py)
 if [ -z "$VERSION" ]; then
