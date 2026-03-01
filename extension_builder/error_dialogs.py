@@ -43,15 +43,56 @@ def extract_missing_package(error_msg):
     return None
 
 
+def get_frozen_python_version():
+    """
+    Detect the Python version the frozen app was built with by inspecting
+    bundled .so files in the PyInstaller temp dir (_MEIPASS).
+    Returns: version string like "3.10" or None
+    """
+    if not getattr(sys, "frozen", False):
+        return None
+    try:
+        meipass = sys._MEIPASS
+        so_files = glob.glob(os.path.join(meipass, "*.cpython-*.so"))
+        so_files += glob.glob(
+            os.path.join(meipass, "**", "*.cpython-*.so"), recursive=True
+        )
+        for f in so_files:
+            match = re.search(r"cpython-(\d)(\d+)-", os.path.basename(f))
+            if match:
+                version = f"{match.group(1)}.{match.group(2)}"
+                print(f"   🔍 Detected frozen Python ABI version: {version}")
+                return version
+    except Exception as e:
+        print(f"   ⚠ Could not detect frozen Python version: {e}")
+    return None
+
+
 def find_system_python():
     """
     Dynamically find a working Python with pip on the system.
-    Works across Linux distros, macOS, and Windows regardless of Python version.
+    When running frozen, prefers Python version matching the frozen app's ABI.
     Returns: python executable string or None
     """
+    frozen_version = get_frozen_python_version()
+    print(f"   🎯 Target Python version: {frozen_version or 'any'}")
+
     candidates = []
 
-    # 1. Use 'which'/'where' to find python in PATH dynamically
+    # 1. If frozen, prioritise exact version match first
+    if frozen_version:
+        versioned = [
+            f"python{frozen_version}",
+            f"/usr/bin/python{frozen_version}",
+            f"/usr/local/bin/python{frozen_version}",
+            f"/opt/homebrew/bin/python{frozen_version}",
+        ]
+        # Windows versioned path e.g. C:\Python310\python.exe
+        win_ver = frozen_version.replace(".", "")
+        versioned.append(rf"C:\Python{win_ver}\python.exe")
+        candidates.extend(versioned)
+
+    # 2. Use 'which'/'where' to find python in PATH dynamically
     for cmd in ["python3", "python"]:
         try:
             result = subprocess.run(
@@ -73,7 +114,7 @@ def find_system_python():
         except Exception:
             pass
 
-    # 2. Glob scan common bin directories for any python3.x version
+    # 3. Glob scan common bin directories for any python3.x version
     search_dirs = [
         "/usr/bin",
         "/usr/local/bin",
@@ -81,12 +122,12 @@ def find_system_python():
         "/usr/local/opt/python/bin",
     ]
     for d in search_dirs:
-        matches = sorted(glob.glob(os.path.join(d, "python3*")), reverse=True)
+        matches = sorted(glob.glob(os.path.join(d, "python3.*")), reverse=True)
         candidates.extend(matches)
         matches = sorted(glob.glob(os.path.join(d, "python[0-9]*")), reverse=True)
         candidates.extend(matches)
 
-    # 3. Common explicit paths as final fallback
+    # 4. Common explicit paths as final fallback
     candidates.extend(
         [
             "/usr/bin/python3",
@@ -109,7 +150,7 @@ def find_system_python():
             seen.add(c)
             unique_candidates.append(c)
 
-    # Test each candidate
+    # Test each candidate — if frozen, verify version matches ABI
     for candidate in unique_candidates:
         print(f"   🔍 Trying: {candidate}")
         try:
@@ -121,11 +162,40 @@ def find_system_python():
                 shell=True,
             )
             if result.returncode == 0:
+                # If we need a specific version, verify it
+                if frozen_version:
+                    ver_result = subprocess.run(
+                        f'"{candidate}" -c "import sys; print(sys.version)"',
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        shell=True,
+                    )
+                    if frozen_version not in ver_result.stdout:
+                        print(f"   ⚠ Version mismatch, skipping: {candidate}")
+                        continue
                 print(f"   ✅ Found working Python: {candidate}")
                 print(f"      pip version: {result.stdout.strip()}")
                 return candidate
         except Exception as e:
             print(f"   ❌ {candidate} failed: {e}")
+            continue
+
+    # Last resort — return any working Python even if version doesn't match
+    print(f"   ⚠ No ABI-matched Python found, trying any available...")
+    for candidate in unique_candidates:
+        try:
+            result = subprocess.run(
+                f'"{candidate}" -m pip --version',
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=True,
+            )
+            if result.returncode == 0:
+                print(f"   ⚠ Using mismatched Python as fallback: {candidate}")
+                return candidate
+        except Exception:
             continue
 
     return None
