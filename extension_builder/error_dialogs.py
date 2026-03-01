@@ -374,6 +374,15 @@ def show_error_dialog_with_actions(
 
         if success:
             print(f"   ✅ Installation successful")
+            # Invalidate cached failed import so Python will retry cleanly
+            for key in list(sys.modules.keys()):
+                if key == missing_package or key.startswith(missing_package + "."):
+                    print(f"   🗑 Removing cached module: {key}")
+                    del sys.modules[key]
+            # Ensure dependencies dir is still in sys.path
+            deps_str = str(dependencies_dir)
+            if deps_str not in sys.path:
+                sys.path.insert(0, deps_str)
             QMessageBox.information(
                 parent_widget,
                 "Package Installed",
