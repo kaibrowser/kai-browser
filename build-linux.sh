@@ -6,10 +6,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 # Activate venv
 if [ -d "venv" ]; then
-    source venv/bin/activate
+source venv/bin/activate
 else
-    echo "✗ Virtual environment not found. Run 'python3 kaibrowser.py' first to create it."
-    exit 1
+echo "✗ Virtual environment not found. Run 'python3 kaibrowser.py' first to create it."
+exit 1
 fi
 # Ensure PyInstaller is installed
 echo "→ Checking PyInstaller..."
@@ -19,8 +19,8 @@ echo ""
 # Get version from updater.py
 VERSION=$(grep -oP 'VERSION\s*=\s*"\K[^"]+' updater.py)
 if [ -z "$VERSION" ]; then
-    echo "✗ Could not read VERSION from updater.py"
-    exit 1
+echo "✗ Could not read VERSION from updater.py"
+exit 1
 fi
 TAG="v${VERSION}"
 echo "Version: $VERSION (tag: $TAG)"
@@ -28,23 +28,23 @@ echo ""
 # Check if tag already exists on remote
 TAG_EXISTS=0
 if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-    echo "Tag $TAG already exists on GitHub. Will upload to existing release."
-    TAG_EXISTS=1
+echo "Tag $TAG already exists on GitHub."
+TAG_EXISTS=1
 fi
 # Compile
 echo "→ Compiling with PyInstaller..."
 pyinstaller --onefile --windowed --name kaibrowser \
-    --icon=kai-browser_logo.ico \
-    --add-data "kai-browser_logo.png:." \
-    --exclude-module=modules \
-    --exclude-module=dependencies \
-    --exclude-module=__pycache__ \
-    --hidden-import=PyQt6 \
-    --hidden-import=selenium \
-    --hidden-import=webdriver_manager \
-    --hidden-import=keyring \
-    --hidden-import=requests \
-    launch_browser.py
+--icon=kai-browser_logo.ico \
+--add-data "kai-browser_logo.png:." \
+--exclude-module=modules \
+--exclude-module=dependencies \
+--exclude-module=__pycache__ \
+--hidden-import=PyQt6 \
+--hidden-import=selenium \
+--hidden-import=webdriver_manager \
+--hidden-import=keyring \
+--hidden-import=requests \
+launch_browser.py
 echo "✓ Build complete"
 echo ""
 # Copy files to dist
@@ -68,24 +68,33 @@ echo ""
 read -p "Push tag $TAG and create GitHub release? (y/n) " -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Build complete. Archive ready but not released."
-    exit 0
+echo "Build complete. Archive ready but not released."
+exit 0
 fi
 # Tag, release and upload
-if [ "$TAG_EXISTS" -eq 1 ]; then
-    echo "→ Uploading to existing release $TAG..."
-    gh release upload "$TAG" kaibrowser-linux.tar.gz --clobber
+RELEASE_EXISTS=0
+if gh release view "$TAG" &>/dev/null; then
+  RELEASE_EXISTS=1
+fi
+
+if [ "$TAG_EXISTS" -eq 0 ]; then
+  echo "→ Creating tag $TAG..."
+  git tag "$TAG"
+  git push origin "$TAG"
+  echo "✓ Tag pushed"
+  echo ""
+fi
+
+if [ "$RELEASE_EXISTS" -eq 1 ]; then
+  echo "→ Uploading to existing release $TAG..."
+  gh release upload "$TAG" kaibrowser-linux.tar.gz --clobber
 else
-    echo "→ Creating tag $TAG..."
-    git tag "$TAG"
-    git push origin "$TAG"
-    echo "✓ Tag pushed"
-    echo ""
-    echo "→ Creating GitHub release..."
-    gh release create "$TAG" kaibrowser-linux.tar.gz \
-        --title "Kai Browser $TAG" \
-        --notes "Kai Browser $VERSION release" \
-        --latest
+  echo "→ Creating GitHub release..."
+  gh release delete "$TAG" --yes &>/dev/null || true
+  gh release create "$TAG" kaibrowser-linux.tar.gz \
+    --title "Kai Browser $TAG" \
+    --notes "Kai Browser $VERSION release" \
+    --latest
 fi
 echo "✓ Release updated"
 echo ""
