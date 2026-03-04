@@ -6,6 +6,7 @@ NEW: Auto-detects and offers to install missing packages at load-time
 CONSOLIDATED: Uses shared error_dialogs module
 """
 
+import os
 import importlib.util
 import inspect
 import sys
@@ -96,7 +97,9 @@ def load_all_modules(browser_core):
     Supports both natural AI pattern and legacy KaiModule pattern
     NOW: Auto-installs missing packages when detected
     """
-    if getattr(sys, "frozen", False):
+    if os.environ.get("APPIMAGE"):
+        base_dir = Path.home() / ".local" / "share" / "kaibrowser"
+    elif getattr(sys, "frozen", False):
         base_dir = Path(sys.executable).parent
     else:
         base_dir = Path(__file__).parent

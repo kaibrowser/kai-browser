@@ -21,8 +21,10 @@ def setup_dependencies_path():
     Create dependencies and modules folders and add to sys.path
     This allows pip-installed packages and modules to be imported
     """
-    # Get app directory (works for both dev and compiled)
-    if getattr(sys, "frozen", False):
+    if os.environ.get("APPIMAGE"):
+        # Running as AppImage - use writable user directory
+        app_dir = Path.home() / ".local" / "share" / "kaibrowser"
+    elif getattr(sys, "frozen", False):
         # Compiled app
         app_dir = Path(sys.executable).parent
     else:

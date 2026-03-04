@@ -3,6 +3,7 @@ Extension Builder __init__.py - Fixed Runtime Error Loading
 Now properly loads pending errors into AI tab
 """
 
+import os
 from PyQt6.QtWidgets import QDialog, QTabWidget, QVBoxLayout, QLabel, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
@@ -39,7 +40,11 @@ class ExtensionBuilderModule(KaiModule):
         builder_action.triggered.connect(self.show_builder)
         self.add_toolbar_action(builder_action)
 
-        if getattr(sys, "frozen", False):
+        if os.environ.get("APPIMAGE"):
+            self.modules_dir = (
+                Path.home() / ".local" / "share" / "kaibrowser" / "modules"
+            )
+        elif getattr(sys, "frozen", False):
             self.modules_dir = Path(sys.executable).parent / "modules"
         else:
             self.modules_dir = Path(__file__).parent.parent / "modules"

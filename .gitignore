@@ -11,3 +11,6 @@ build/
 dist/
 kaibrowser.spec
 kaibrowser-linux.tar.gz
+appimagetool-x86_64.AppImage 
+KaiBrowser-1.0.9-x86_64.AppImage 
+AppDir

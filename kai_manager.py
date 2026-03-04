@@ -43,7 +43,9 @@ class ModuleManagerModule(KaiModule):
 
     def _get_modules_dir(self):
         """Resolve modules directory for both frozen (compiled) and source versions"""
-        if getattr(sys, "frozen", False):
+        if os.environ.get("APPIMAGE"):
+            return Path.home() / ".local" / "share" / "kaibrowser" / "modules"
+        elif getattr(sys, "frozen", False):
             return Path(sys.executable).parent / "modules"
         else:
             return Path(__file__).parent / "modules"

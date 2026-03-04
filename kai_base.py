@@ -3,6 +3,8 @@ Enhanced kai_base.py with Runtime Error Tracking
 Captures runtime errors and makes them available to AI for fixing
 """
 
+import os
+
 
 class KaiModule:
     """Base class with runtime error tracking"""
@@ -605,7 +607,9 @@ class KaiModule:
 
             module_file = self.__class__.__module__.split(".")[-1]
 
-            if hasattr(sys, "frozen"):
+            if os.environ.get("APPIMAGE"):
+                base_dir = Path.home() / ".local" / "share" / "kaibrowser"
+            elif hasattr(sys, "frozen"):
                 base_dir = Path(sys.executable).parent
             else:
                 base_dir = Path(__file__).parent

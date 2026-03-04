@@ -24,6 +24,7 @@ from .utils import ModuleLoader, CodeTemplates, validate_python_syntax
 from pathlib import Path
 import sys
 import re
+import os
 
 # Import from consolidated error_dialogs module
 from .error_dialogs import (
@@ -73,7 +74,11 @@ class CodeEditorTab(QWidget):
         if hasattr(browser_core, "dependencies_dir"):
             self.dependencies_dir = browser_core.dependencies_dir
         else:
-            if getattr(sys, "frozen", False):
+            if os.environ.get("APPIMAGE"):
+                self.dependencies_dir = (
+                    Path.home() / ".local" / "share" / "kaibrowser" / "dependencies"
+                )
+            elif getattr(sys, "frozen", False):
                 self.dependencies_dir = Path(sys.executable).parent / "dependencies"
             else:
                 self.dependencies_dir = (

@@ -4,6 +4,7 @@ With user-friendly error messages and auto-install for missing packages
 CONSOLIDATED: Uses shared error_dialogs module
 """
 
+import os
 import sys
 import traceback
 import datetime
@@ -423,7 +424,9 @@ class ExceptionHandler:
             from extension_loader import load_single_extension
             from pathlib import Path
 
-            if getattr(sys, "frozen", False):
+            if os.environ.get("APPIMAGE"):
+                base_dir = Path.home() / ".local" / "share" / "kaibrowser"
+            elif getattr(sys, "frozen", False):
                 base_dir = Path(sys.executable).parent
             else:
                 base_dir = Path(__file__).parent.parent

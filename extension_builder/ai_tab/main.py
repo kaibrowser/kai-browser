@@ -24,6 +24,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import os
 
 from .ai_streaming import AIStreamingThread
 from .chat_display import ChatDisplayManager
@@ -315,8 +316,11 @@ class AIBuilderTab(QWidget):
         if hasattr(browser_core, "dependencies_dir"):
             self.dependencies_dir = browser_core.dependencies_dir
         else:
-            # Fallback
-            if getattr(sys, "frozen", False):
+            if os.environ.get("APPIMAGE"):
+                self.dependencies_dir = (
+                    Path.home() / ".local" / "share" / "kaibrowser" / "dependencies"
+                )
+            elif getattr(sys, "frozen", False):
                 self.dependencies_dir = Path(sys.executable).parent / "dependencies"
             else:
                 self.dependencies_dir = (
