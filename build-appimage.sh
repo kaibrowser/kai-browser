@@ -126,6 +126,20 @@ ARCH=x86_64 ./"$APPIMAGE_TOOL" "$APPDIR" "KaiBrowser-${VERSION}-x86_64.AppImage"
 echo "✓ Created KaiBrowser-${VERSION}-x86_64.AppImage"
 echo ""
 
+# ── Package archive ──────────────────────────────────────
+echo "→ Packaging archive..."
+mkdir -p appimage_dist
+cp "KaiBrowser-${VERSION}-x86_64.AppImage" appimage_dist/
+cp kai-browser_logo.png appimage_dist/kaibrowser.png
+cp DISCLAIMER.md appimage_dist/
+cp README.md appimage_dist/
+cp LICENSE.save appimage_dist/
+cp TERMS_OF_SERVICE.md appimage_dist/
+tar -czf kaibrowser-linux.tar.gz --transform 's|^appimage_dist|kaibrowser|' appimage_dist/
+rm -rf appimage_dist
+echo "✓ Created kaibrowser-linux.tar.gz"
+echo ""
+
 # ── Confirm release ───────────────────────────────────────
 read -p "Push tag $TAG and upload AppImage to GitHub release? (y/n) " -n 1 -r
 echo ""
@@ -136,18 +150,36 @@ fi
 
 # ── Tag and release ───────────────────────────────────────
 TAG_EXISTS=0
+RELEASE_EXISTS=0
+
 if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-    echo "Tag $TAG already exists, uploading to existing release..."
     TAG_EXISTS=1
 fi
 
-if [ "$TAG_EXISTS" -eq 1 ]; then
-    gh release upload "$TAG" "KaiBrowser-${VERSION}-x86_64.AppImage" --clobber
+if gh release view "$TAG" &>/dev/null; then
+    RELEASE_EXISTS=1
+fi
+
+echo "Tag exists: $TAG_EXISTS | Release exists: $RELEASE_EXISTS"
+
+if [ "$TAG_EXISTS" -eq 1 ] && [ "$RELEASE_EXISTS" -eq 1 ]; then
+    echo "→ Uploading to existing release $TAG..."
+    gh release upload "$TAG" kaibrowser-linux.tar.gz --clobber
+
+elif [ "$TAG_EXISTS" -eq 1 ] && [ "$RELEASE_EXISTS" -eq 0 ]; then
+    echo "→ Creating release for existing tag $TAG..."
+    gh release create "$TAG" kaibrowser-linux.tar.gz \
+        --title "Kai Browser $TAG" \
+        --notes "Kai Browser $VERSION — Universal Linux AppImage (glibc 2.35+)" \
+        --latest
+
 else
+    echo "→ Creating tag $TAG..."
     git tag "$TAG"
     git push origin "$TAG"
     echo "✓ Tag pushed"
-    gh release create "$TAG" "KaiBrowser-${VERSION}-x86_64.AppImage" \
+    echo "→ Creating GitHub release..."
+    gh release create "$TAG" kaibrowser-linux.tar.gz \
         --title "Kai Browser $TAG" \
         --notes "Kai Browser $VERSION — Universal Linux AppImage (glibc 2.35+)" \
         --latest
