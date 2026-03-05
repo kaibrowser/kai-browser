@@ -7,6 +7,8 @@ Used by: extension_loader, exceptions, error_handler, code_editor_tab, manage_ta
 import sys
 import subprocess
 import re
+import os
+import glob
 from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox, QProgressDialog
 from PyQt6.QtCore import Qt
@@ -24,22 +26,174 @@ def extract_missing_package(error_msg):
     Extract package name from ModuleNotFoundError or ImportError
     Returns: package_name or None
     """
-    # Pattern 1: "No module named 'package'"
     match = re.search(r"No module named ['\"]([^'\"]+)['\"]", error_msg)
     if match:
         pkg = match.group(1)
-        # Handle submodules (e.g., "cv2.something" -> "cv2")
         if "." in pkg:
             pkg = pkg.split(".")[0]
         return pkg
 
-    # Pattern 2: "cannot import name 'X' from 'package'"
     match = re.search(r"cannot import name .+ from ['\"]([^'\"]+)['\"]", error_msg)
     if match:
         pkg = match.group(1)
         if "." in pkg:
             pkg = pkg.split(".")[0]
         return pkg
+
+    return None
+
+
+def get_frozen_python_version():
+    """
+    Detect the Python version the frozen app was built with by inspecting
+    bundled .so files in the PyInstaller temp dir (_MEIPASS).
+    Returns: version string like "3.10" or None
+    """
+    if not getattr(sys, "frozen", False):
+        return None
+    try:
+        meipass = sys._MEIPASS
+        so_files = glob.glob(os.path.join(meipass, "*.cpython-*.so"))
+        so_files += glob.glob(
+            os.path.join(meipass, "**", "*.cpython-*.so"), recursive=True
+        )
+        for f in so_files:
+            match = re.search(r"cpython-(\d)(\d+)-", os.path.basename(f))
+            if match:
+                version = f"{match.group(1)}.{match.group(2)}"
+                print(f"   🔍 Detected frozen Python ABI version: {version}")
+                return version
+    except Exception as e:
+        print(f"   ⚠ Could not detect frozen Python version: {e}")
+    return None
+
+
+def find_system_python():
+    """
+    Dynamically find a working Python with pip on the system.
+    When running frozen, prefers Python version matching the frozen app's ABI.
+    Returns: python executable string or None
+    """
+    frozen_version = get_frozen_python_version()
+    print(f"   🎯 Target Python version: {frozen_version or 'any'}")
+
+    candidates = []
+
+    # 1. If frozen, prioritise exact version match first
+    if frozen_version:
+        versioned = [
+            f"python{frozen_version}",
+            f"/usr/bin/python{frozen_version}",
+            f"/usr/local/bin/python{frozen_version}",
+            f"/opt/homebrew/bin/python{frozen_version}",
+        ]
+        win_ver = frozen_version.replace(".", "")
+        versioned.append(rf"C:\Python{win_ver}\python.exe")
+        candidates.extend(versioned)
+
+    # 2. Use 'which'/'where' to find python in PATH dynamically
+    for cmd in ["python3", "python"]:
+        try:
+            result = subprocess.run(
+                ["which", cmd], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                candidates.append(result.stdout.strip())
+        except Exception:
+            pass
+
+    for cmd in ["python", "py"]:
+        try:
+            result = subprocess.run(
+                ["where", cmd], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                candidates.append(result.stdout.strip().splitlines()[0])
+        except Exception:
+            pass
+
+    # 3. Glob scan common bin directories
+    search_dirs = [
+        "/usr/bin",
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+        "/usr/local/opt/python/bin",
+    ]
+    for d in search_dirs:
+        matches = sorted(glob.glob(os.path.join(d, "python3.*")), reverse=True)
+        candidates.extend(matches)
+        matches = sorted(glob.glob(os.path.join(d, "python[0-9]*")), reverse=True)
+        candidates.extend(matches)
+
+    # 4. Explicit fallback paths
+    candidates.extend(
+        [
+            "/usr/bin/python3",
+            "/usr/bin/python",
+            "/usr/local/bin/python3",
+            "/usr/local/bin/python",
+            r"C:\Python313\python.exe",
+            r"C:\Python312\python.exe",
+            r"C:\Python311\python.exe",
+            r"C:\Python310\python.exe",
+            r"C:\Python39\python.exe",
+        ]
+    )
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_candidates = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            unique_candidates.append(c)
+
+    # Test each candidate — if frozen, verify version matches ABI
+    for candidate in unique_candidates:
+        print(f"   🔍 Trying: {candidate}")
+        try:
+            result = subprocess.run(
+                f'"{candidate}" -m pip --version',
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=True,
+            )
+            if result.returncode == 0:
+                if frozen_version:
+                    ver_result = subprocess.run(
+                        f'"{candidate}" -c "import sys; print(sys.version)"',
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        shell=True,
+                    )
+                    if frozen_version not in ver_result.stdout:
+                        print(f"   ⚠ Version mismatch, skipping: {candidate}")
+                        continue
+                print(f"   ✅ Found working Python: {candidate}")
+                print(f"      pip version: {result.stdout.strip()}")
+                return candidate
+        except Exception as e:
+            print(f"   ❌ {candidate} failed: {e}")
+            continue
+
+    # Last resort — any working Python even if version doesn't match
+    print(f"   ⚠ No ABI-matched Python found, trying any available...")
+    for candidate in unique_candidates:
+        try:
+            result = subprocess.run(
+                f'"{candidate}" -m pip --version',
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=True,
+            )
+            if result.returncode == 0:
+                print(f"   ⚠ Using mismatched Python as fallback: {candidate}")
+                return candidate
+        except Exception:
+            continue
 
     return None
 
@@ -57,7 +211,6 @@ def install_package(package_name, dependencies_dir):
         print(f"   sys.frozen = {getattr(sys, 'frozen', False)}")
         print(f"   dependencies_dir = {dependencies_dir}")
 
-        # Map common import names to pip package names
         package_map = {
             "cv2": "opencv-python",
             "PIL": "Pillow",
@@ -68,35 +221,7 @@ def install_package(package_name, dependencies_dir):
         pip_package = package_map.get(package_name, package_name)
         print(f"   pip_package = {pip_package}")
 
-        # Always search for a working Python with pip
-        print(f"   🔍 Finding Python...")
-        python_candidates = [
-            "py",
-            "python",
-            "python3",
-            r"C:\Python312\python.exe",
-            r"C:\Python311\python.exe",
-            r"C:\Python310\python.exe",
-            "/usr/bin/python3",
-            "/usr/bin/python",
-        ]
-
-        python_exe = None
-        for candidate in python_candidates:
-            print(f"   🔍 Trying candidate: {candidate}")
-            try:
-                cmd = f'"{candidate}" -m pip --version'
-                test_result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=5, shell=True
-                )
-                if test_result.returncode == 0:
-                    python_exe = candidate
-                    print(f"   ✅ Found working Python: {python_exe}")
-                    print(f"      pip version: {test_result.stdout.strip()}")
-                    break
-            except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
-                print(f"   ❌ {candidate} failed: {e}")
-                continue
+        python_exe = find_system_python()
 
         if not python_exe:
             return False, (
@@ -104,7 +229,6 @@ def install_package(package_name, dependencies_dir):
                 "Try: sudo apt install python3-pip (Debian/Ubuntu) or equivalent"
             )
 
-        # Run pip install with increased timeout for large packages
         print(f"   🚀 Running pip install (timeout: 300s)...")
         cmd = f'"{python_exe}" -m pip install --target "{str(dependencies_dir)}" {pip_package}'
         result = subprocess.run(
@@ -209,30 +333,16 @@ def show_error_dialog_with_actions(
 ):
     """
     Show comprehensive error dialog with Install Package or Fix with AI buttons
-
-    Args:
-        parent_widget: Parent QWidget for the dialog
-        extension_name: Name of the extension that failed
-        error_info: Dict with 'type', 'message', 'traceback'
-        dependencies_dir: Path to dependencies folder
-        on_install_success: Callback() to run after successful package install
-        on_fix_with_ai: Callback(error_details, code) to send to AI for fixing
-        dialog_title: Window title for the dialog
-
-    Returns:
-        action_taken: "installed", "fixed_with_ai", "cancelled"
     """
     print(f"\n🔍 ERROR DIALOG:")
     print(f"   Extension: {extension_name}")
     print(f"   Error Type: {error_info.get('type', 'Unknown')}")
     print(f"   Error Message: {error_info.get('message', '')[:200]}")
 
-    # Extract error details
     error_type = error_info.get("type", "")
     error_msg = error_info.get("message", "")
     full_error = error_info.get("traceback", "") + "\n" + error_msg
 
-    # Check if this is an import error
     is_import_error = error_type in ["ModuleNotFoundError", "ImportError"]
     print(f"   Is Import Error: {is_import_error}")
 
@@ -241,7 +351,6 @@ def show_error_dialog_with_actions(
         missing_package = extract_missing_package(full_error)
         print(f"   Missing Package: {missing_package}")
 
-    # Check for system library errors
     is_system_lib_error = any(
         keyword in full_error.lower()
         for keyword in [
@@ -252,12 +361,10 @@ def show_error_dialog_with_actions(
         ]
     )
 
-    # Create message box
     msg = ClosableMessageBox(parent_widget)
     msg.setWindowTitle(dialog_title)
     msg.setIcon(QMessageBox.Icon.Warning)
 
-    # Build message based on error type
     if is_system_lib_error:
         print(f"   ✅ SHOWING SYSTEM LIBRARY INSTRUCTIONS")
         system_lib_name = extract_system_lib_name(full_error)
@@ -285,20 +392,18 @@ def show_error_dialog_with_actions(
             "You can fix this manually or let AI help."
         )
 
-    # Technical details
     msg.setDetailedText(f"Technical Details:\n{full_error}")
 
-    # Add appropriate button
     install_btn = None
     fix_with_ai_btn = None
 
     if is_system_lib_error:
-        # No action button for system libs
         print(f"   ℹ️ SYSTEM LIBRARY ERROR - NO ACTION BUTTON")
     elif missing_package:
         install_btn = msg.addButton(
             "📦 Install Package", QMessageBox.ButtonRole.ActionRole
         )
+        print(f"   ✅ ADDING INSTALL BUTTON")
     elif on_fix_with_ai:
         fix_with_ai_btn = msg.addButton(
             "Fix with AI", QMessageBox.ButtonRole.ActionRole
@@ -308,17 +413,14 @@ def show_error_dialog_with_actions(
     msg.exec()
 
     clicked = msg.clickedButton()
-    print(f"   User clicked: {clicked.text() if clicked else 'None'}")
+    print(f"   Dialog closed, clicked button: {clicked.text() if clicked else 'None'}")
 
-    # Handle button clicks
     if is_system_lib_error:
-        print(f"   ℹ️ System library error - user must install manually")
         return "cancelled"
 
     elif missing_package and clicked == install_btn:
-        print(f"   🔄 Starting package installation")
+        print(f"   🔄 User clicked INSTALL PACKAGE button")
 
-        # Show progress dialog
         progress = QProgressDialog(
             f"Installing {missing_package}...\nThis may take a moment.",
             None,
@@ -331,30 +433,31 @@ def show_error_dialog_with_actions(
         progress.setMinimumDuration(0)
         progress.show()
 
-        # Process events to show dialog
         from PyQt6.QtWidgets import QApplication
 
         QApplication.processEvents()
 
-        # Install package
         success, install_error = install_package(missing_package, dependencies_dir)
-
-        # Close progress
         progress.close()
 
         if success:
             print(f"   ✅ Installation successful")
+            # Invalidate cached failed import
+            for key in list(sys.modules.keys()):
+                if key == missing_package or key.startswith(missing_package + "."):
+                    print(f"   🗑 Removing cached module: {key}")
+                    del sys.modules[key]
+            deps_str = str(dependencies_dir)
+            if deps_str not in sys.path:
+                sys.path.insert(0, deps_str)
             QMessageBox.information(
                 parent_widget,
                 "Package Installed",
                 f"Successfully installed {missing_package}!\n\n"
                 f"The extension will be reloaded now.",
             )
-
-            # Call success callback
             if on_install_success:
                 on_install_success()
-
             return "installed"
         else:
             print(f"   ❌ Installation failed: {install_error}")
@@ -365,14 +468,12 @@ def show_error_dialog_with_actions(
                 f"Would you like to try fixing this with AI?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
-
             if reply == QMessageBox.StandardButton.Yes and on_fix_with_ai:
                 error_details = (
                     f"Failed to install package {missing_package}: {install_error}"
                 )
                 on_fix_with_ai(error_details, None)
                 return "fixed_with_ai"
-
             return "cancelled"
 
     elif not missing_package and clicked == fix_with_ai_btn and on_fix_with_ai:
