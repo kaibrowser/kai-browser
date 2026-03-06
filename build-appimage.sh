@@ -34,41 +34,6 @@ done
 echo "✓ Build dependencies ready"
 echo ""
 
-# ── Bundle standalone Python into AppDir ─────────────────
-echo "→ Bundling standalone Python $PYTHON_VERSION into AppDir..."
-PYTHON_BIN=$(which python$PYTHON_VERSION 2>/dev/null || which python3)
-PYTHON_REAL=$(readlink -f "$PYTHON_BIN")
-PYTHON_LIB_DIR=$(python$PYTHON_VERSION -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null || python3 -c "import sysconfig; print(sysconfig.get_path('stdlib'))")
-PYTHON_LIB_DYNLOAD=$(python$PYTHON_VERSION -c "import sysconfig; print(sysconfig.get_config_var('DESTLIB'))" 2>/dev/null || dirname "$PYTHON_LIB_DIR")
-
-mkdir -p "$APPDIR/usr/python/bin"
-mkdir -p "$APPDIR/usr/python/lib"
-
-# Copy python binary
-cp "$PYTHON_REAL" "$APPDIR/usr/python/bin/python$PYTHON_VERSION"
-chmod +x "$APPDIR/usr/python/bin/python$PYTHON_VERSION"
-
-# Copy python standard library
-cp -r "$PYTHON_LIB_DIR" "$APPDIR/usr/python/lib/"
-
-# Copy shared python lib
-PYTHON_SO=$(ldconfig -p | grep "libpython${PYTHON_VERSION}" | awk '{print $NF}' | head -1)
-if [ -n "$PYTHON_SO" ]; then
-    cp "$PYTHON_SO" "$APPDIR/usr/python/lib/"
-    echo "✓ Bundled libpython: $PYTHON_SO"
-fi
-
-# Copy pip
-PYTHON_SITE=$(python$PYTHON_VERSION -c "import site; print(site.getsitepackages()[0])" 2>/dev/null || python3 -c "import site; print(site.getsitepackages()[0])")
-if [ -d "$PYTHON_SITE/pip" ]; then
-    mkdir -p "$APPDIR/usr/python/lib/python$PYTHON_VERSION/site-packages"
-    cp -r "$PYTHON_SITE/pip" "$APPDIR/usr/python/lib/python$PYTHON_VERSION/site-packages/"
-    echo "✓ Bundled pip"
-fi
-
-echo "✓ Python $PYTHON_VERSION bundled"
-echo ""
-
 # ── Setup venv ────────────────────────────────────────────
 if [ ! -d "venv" ]; then
     echo "→ Creating virtual environment..."
@@ -146,6 +111,56 @@ mkdir -p "\$USER_DATA/modules"
 exec "\$HERE/usr/bin/kaibrowser" "\$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
+
+# ── Bundle standalone Python into AppDir ─────────────────
+echo "→ Bundling standalone Python $PYTHON_VERSION into AppDir..."
+PYTHON_BIN=$(which python$PYTHON_VERSION 2>/dev/null || which python3)
+PYTHON_REAL=$(readlink -f "$PYTHON_BIN")
+PYTHON_LIB_DIR=$(python$PYTHON_VERSION -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null || python3 -c "import sysconfig; print(sysconfig.get_path('stdlib'))")
+
+mkdir -p "$APPDIR/usr/python/bin"
+mkdir -p "$APPDIR/usr/python/lib"
+
+# Copy python binary
+cp "$PYTHON_REAL" "$APPDIR/usr/python/bin/python$PYTHON_VERSION"
+chmod +x "$APPDIR/usr/python/bin/python$PYTHON_VERSION"
+
+# Copy python standard library
+cp -r "$PYTHON_LIB_DIR" "$APPDIR/usr/python/lib/"
+
+# Copy shared python lib
+PYTHON_SO=$(ldconfig -p | grep "libpython${PYTHON_VERSION}" | awk '{print $NF}' | head -1)
+if [ -n "$PYTHON_SO" ]; then
+    cp "$PYTHON_SO" "$APPDIR/usr/python/lib/"
+    echo "✓ Bundled libpython: $PYTHON_SO"
+fi
+
+# Copy pip - search multiple locations
+PIP_DIR=""
+for pip_search in \
+    "/usr/lib/python3/dist-packages/pip" \
+    "/usr/lib/python${PYTHON_VERSION}/dist-packages/pip" \
+    "/usr/local/lib/python${PYTHON_VERSION}/dist-packages/pip" \
+    "/usr/local/lib/python${PYTHON_VERSION}/site-packages/pip"; do
+    if [ -d "$pip_search" ]; then
+        PIP_DIR="$pip_search"
+        break
+    fi
+done
+
+if [ -n "$PIP_DIR" ]; then
+    mkdir -p "$APPDIR/usr/python/lib/python$PYTHON_VERSION/site-packages"
+    cp -r "$PIP_DIR" "$APPDIR/usr/python/lib/python$PYTHON_VERSION/site-packages/"
+    PKGRES_DIR="$(dirname $PIP_DIR)/pkg_resources"
+    [ -d "$PKGRES_DIR" ] && cp -r "$PKGRES_DIR" "$APPDIR/usr/python/lib/python$PYTHON_VERSION/site-packages/"
+    echo "✓ Bundled pip from $PIP_DIR"
+else
+    echo "⚠ pip not found, attempting to install into AppDir..."
+    python$PYTHON_VERSION -m ensurepip --root "$APPDIR/usr/python" 2>/dev/null || true
+fi
+
+echo "✓ Python $PYTHON_VERSION bundled"
+echo ""
 
 echo "✓ AppDir structure ready"
 echo ""
