@@ -47,7 +47,11 @@ class ErrorHandler:
         if browser_core and hasattr(browser_core, "dependencies_dir"):
             self.dependencies_dir = browser_core.dependencies_dir
         else:
-            if getattr(sys, "frozen", False):
+            if os.environ.get("APPIMAGE"):
+                self.dependencies_dir = (
+                    Path.home() / ".local" / "share" / "kaibrowser" / "dependencies"
+                )
+            elif getattr(sys, "frozen", False):
                 self.dependencies_dir = Path(sys.executable).parent / "dependencies"
             else:
                 self.dependencies_dir = (

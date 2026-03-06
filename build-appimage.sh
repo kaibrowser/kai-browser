@@ -34,6 +34,41 @@ done
 echo "✓ Build dependencies ready"
 echo ""
 
+# ── Bundle standalone Python into AppDir ─────────────────
+echo "→ Bundling standalone Python $PYTHON_VERSION into AppDir..."
+PYTHON_BIN=$(which python$PYTHON_VERSION 2>/dev/null || which python3)
+PYTHON_REAL=$(readlink -f "$PYTHON_BIN")
+PYTHON_LIB_DIR=$(python$PYTHON_VERSION -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null || python3 -c "import sysconfig; print(sysconfig.get_path('stdlib'))")
+PYTHON_LIB_DYNLOAD=$(python$PYTHON_VERSION -c "import sysconfig; print(sysconfig.get_config_var('DESTLIB'))" 2>/dev/null || dirname "$PYTHON_LIB_DIR")
+
+mkdir -p "$APPDIR/usr/python/bin"
+mkdir -p "$APPDIR/usr/python/lib"
+
+# Copy python binary
+cp "$PYTHON_REAL" "$APPDIR/usr/python/bin/python$PYTHON_VERSION"
+chmod +x "$APPDIR/usr/python/bin/python$PYTHON_VERSION"
+
+# Copy python standard library
+cp -r "$PYTHON_LIB_DIR" "$APPDIR/usr/python/lib/"
+
+# Copy shared python lib
+PYTHON_SO=$(ldconfig -p | grep "libpython${PYTHON_VERSION}" | awk '{print $NF}' | head -1)
+if [ -n "$PYTHON_SO" ]; then
+    cp "$PYTHON_SO" "$APPDIR/usr/python/lib/"
+    echo "✓ Bundled libpython: $PYTHON_SO"
+fi
+
+# Copy pip
+PYTHON_SITE=$(python$PYTHON_VERSION -c "import site; print(site.getsitepackages()[0])" 2>/dev/null || python3 -c "import site; print(site.getsitepackages()[0])")
+if [ -d "$PYTHON_SITE/pip" ]; then
+    mkdir -p "$APPDIR/usr/python/lib/python$PYTHON_VERSION/site-packages"
+    cp -r "$PYTHON_SITE/pip" "$APPDIR/usr/python/lib/python$PYTHON_VERSION/site-packages/"
+    echo "✓ Bundled pip"
+fi
+
+echo "✓ Python $PYTHON_VERSION bundled"
+echo ""
+
 # ── Setup venv ────────────────────────────────────────────
 if [ ! -d "venv" ]; then
     echo "→ Creating virtual environment..."
@@ -94,17 +129,21 @@ DESKTOP
 cp "$APPDIR/usr/share/applications/kaibrowser.desktop" "$APPDIR/kaibrowser.desktop"
 
 # AppRun entry point
-cat > "$APPDIR/AppRun" << 'APPRUN'
+cat > "$APPDIR/AppRun" << APPRUN
 #!/bin/bash
-HERE="$(dirname "$(readlink -f "${0}")")"
-export PATH="$HERE/usr/bin:$PATH"
+HERE="\$(dirname "\$(readlink -f "\${0}")")"
+export PATH="\$HERE/usr/bin:\$PATH"
+
+# Expose bundled Python for dependency installation
+export KAIBROWSER_PYTHON="\$HERE/usr/python/bin/python${PYTHON_VERSION}"
+export PYTHONPATH="\$HERE/usr/python/lib/python${PYTHON_VERSION}/site-packages"
 
 # Setup writable user directories for dependencies and modules
-USER_DATA="$HOME/.local/share/kaibrowser"
-mkdir -p "$USER_DATA/dependencies"
-mkdir -p "$USER_DATA/modules"
+USER_DATA="\$HOME/.local/share/kaibrowser"
+mkdir -p "\$USER_DATA/dependencies"
+mkdir -p "\$USER_DATA/modules"
 
-exec "$HERE/usr/bin/kaibrowser" "$@"
+exec "\$HERE/usr/bin/kaibrowser" "\$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
 

@@ -71,9 +71,27 @@ def get_frozen_python_version():
 def find_system_python():
     """
     Dynamically find a working Python with pip on the system.
-    When running frozen, prefers Python version matching the frozen app's ABI.
+    Checks for bundled Python first (AppImage), then ABI-matched system Python.
     Returns: python executable string or None
     """
+    # 1. Check for bundled Python set by AppRun
+    bundled_python = os.environ.get("KAIBROWSER_PYTHON")
+    if bundled_python and os.path.isfile(bundled_python):
+        try:
+            result = subprocess.run(
+                f'"{bundled_python}" -m pip --version',
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=True,
+            )
+            if result.returncode == 0:
+                print(f"   ✅ Using bundled Python: {bundled_python}")
+                print(f"      pip version: {result.stdout.strip()}")
+                return bundled_python
+        except Exception as e:
+            print(f"   ⚠ Bundled Python failed: {e}")
+
     frozen_version = get_frozen_python_version()
     print(f"   🎯 Target Python version: {frozen_version or 'any'}")
 
