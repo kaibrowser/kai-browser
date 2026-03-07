@@ -25,7 +25,7 @@ echo ""
 
 # ── Check / install dependencies ─────────────────────────
 echo "→ Checking build dependencies..."
-for pkg in python3-venv python3-pip patchelf xdg-utils; do
+for pkg in python3-venv python3-pip patchelf; do
     if ! dpkg -l "$pkg" &>/dev/null; then
         echo "  Installing $pkg..."
         sudo apt install -y "$pkg"
@@ -111,31 +111,6 @@ mkdir -p "\$USER_DATA/modules"
 exec "\$HERE/usr/bin/kaibrowser" "\$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
-
-# ── Bundle xdg-utils into AppDir ─────────────────────────
-echo "→ Bundling xdg-utils..."
-XDG_UTILS_DIR=$(dpkg -L xdg-utils | grep "/usr/bin/xdg-" | head -1 | xargs dirname 2>/dev/null)
-if [ -n "$XDG_UTILS_DIR" ]; then
-    for xdg_tool in xdg-open xdg-mime xdg-settings xdg-user-dir; do
-        if [ -f "$XDG_UTILS_DIR/$xdg_tool" ]; then
-            cp "$XDG_UTILS_DIR/$xdg_tool" "$APPDIR/usr/bin/$xdg_tool"
-            chmod +x "$APPDIR/usr/bin/$xdg_tool"
-            echo "  ✓ Bundled $xdg_tool"
-        fi
-    done
-    echo "✓ xdg-utils bundled"
-else
-    echo "⚠ xdg-utils not found via dpkg, trying which..."
-    for xdg_tool in xdg-open xdg-mime xdg-settings xdg-user-dir; do
-        XDG_PATH=$(which $xdg_tool 2>/dev/null)
-        if [ -n "$XDG_PATH" ]; then
-            cp "$XDG_PATH" "$APPDIR/usr/bin/$xdg_tool"
-            chmod +x "$APPDIR/usr/bin/$xdg_tool"
-            echo "  ✓ Bundled $xdg_tool"
-        fi
-    done
-fi
-echo ""
 
 # ── Bundle standalone Python into AppDir ─────────────────
 echo "→ Bundling standalone Python $PYTHON_VERSION into AppDir..."
