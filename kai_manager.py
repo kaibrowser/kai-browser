@@ -6,6 +6,7 @@ Now detects both legacy KaiModule and natural plugin patterns
 import sys
 import os
 import subprocess
+import time
 from pathlib import Path
 
 from PyQt6.QtWidgets import QMenu, QMessageBox, QToolButton
@@ -77,26 +78,47 @@ class ModuleManagerModule(KaiModule):
             else:
                 launched = False
                 for fm in [
-                    "nautilus",  # GNOME
-                    "thunar",  # XFCE
-                    "nemo",  # Cinnamon
-                    "dolphin",  # KDE
-                    "pcmanfm",  # LXDE/LXQt
-                    "caja",  # MATE
-                    "krusader",  # KDE advanced
-                    "spacefm",  # independent
-                    "ranger",  # terminal
-                    "midnight-commander",  # terminal
-                    "xdg-open",  # fallback
+                    "nautilus",
+                    "thunar",
+                    "nemo",
+                    "dolphin",
+                    "pcmanfm",
+                    "caja",
+                    "krusader",
+                    "spacefm",
+                    "ranger",
+                    "midnight-commander",
+                    "xdg-open",
                 ]:
                     try:
                         result = subprocess.run(["which", fm], capture_output=True)
-                        if result.returncode == 0:
-                            subprocess.Popen([fm, str(modules_dir)])
+                        if result.returncode != 0:
+                            continue
+
+                        proc = subprocess.Popen(
+                            [fm, str(modules_dir)],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+
+                        # Wait briefly to catch immediate crashes (e.g. symbol errors on newer glibc)
+                        time.sleep(0.3)
+                        if proc.poll() is None:
+                            # Process is still running — it launched successfully
+                            print(f"Opened with: {fm}")
                             launched = True
                             break
-                    except Exception:
+                        else:
+                            # Process exited immediately — likely a library/symbol error
+                            print(
+                                f"  ✗ {fm} exited immediately (code {proc.returncode}), trying next..."
+                            )
+                            continue
+
+                    except Exception as e:
+                        print(f"  ✗ {fm} exception: {e}")
                         continue
+
                 if not launched:
                     QMessageBox.information(
                         self.browser_core,
@@ -180,18 +202,17 @@ class ModuleManagerModule(KaiModule):
         natural_plugins.sort(key=lambda m: m.__class__.__name__)
         natural_background_plugins.sort(key=lambda m: m.__class__.__name__)
 
-        # My Extensions section — header is clickable to open folder
-        if natural_plugins:
-            header = QAction("📦 My Extensions", self.browser_core)
-            header.setEnabled(True)
-            header.setToolTip("Open extensions folder")
-            header.triggered.connect(self.open_modules_folder)
-            self.extensions_menu.addAction(header)
+        # My Extensions section — always visible, clickable to open folder
+        header = QAction("📦 My Extensions", self.browser_core)
+        header.setEnabled(True)
+        header.setToolTip("Open extensions folder")
+        header.triggered.connect(self.open_modules_folder)
+        self.extensions_menu.addAction(header)
 
-            for module in natural_plugins:
-                self._add_natural_plugin_action(module)
+        for module in natural_plugins:
+            self._add_natural_plugin_action(module)
 
-            self.extensions_menu.addSeparator()
+        self.extensions_menu.addSeparator()
 
         # Background Extensions section
         if natural_background_plugins:
