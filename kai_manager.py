@@ -51,8 +51,11 @@ class ModuleManagerModule(KaiModule):
             return Path(__file__).parent / "modules"
 
     def open_modules_folder(self):
+        print(f"open_modules_folder called")
         """Open the modules folder in the system file explorer"""
         modules_dir = self._get_modules_dir()
+        print(f"modules_dir: {modules_dir}")
+        print(f"exists: {modules_dir.exists()}")
 
         if not modules_dir.exists():
             try:
@@ -70,8 +73,10 @@ class ModuleManagerModule(KaiModule):
                 os.startfile(str(modules_dir))
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", str(modules_dir)])
+                print(f"Opening: {modules_dir}")
             else:
                 subprocess.Popen(["xdg-open", str(modules_dir)])
+                print(f"Opening: {modules_dir}")
 
             self.browser_core.show_status("📂 Opened extensions folder", 2000)
         except Exception as e:
