@@ -155,17 +155,17 @@ class ModuleManagerModule(KaiModule):
         natural_background_plugins.sort(key=lambda m: m.__class__.__name__)
 
         # My Extensions section — header is clickable to open folder
-        if natural_plugins:
-            header = QAction("📦 My Extensions", self.browser_core)
-            header.setEnabled(True)
-            header.setToolTip("Open extensions folder")
-            header.triggered.connect(self.open_modules_folder)
-            self.extensions_menu.addAction(header)
+        ##if natural_plugins:
+        header = QAction("📦 My Extensions", self.browser_core)
+        header.setEnabled(True)
+        header.setToolTip("Open extensions folder")
+        header.triggered.connect(self.open_modules_folder)
+        self.extensions_menu.addAction(header)
 
-            for module in natural_plugins:
-                self._add_natural_plugin_action(module)
+        for module in natural_plugins:
+            self._add_natural_plugin_action(module)
 
-            self.extensions_menu.addSeparator()
+        self.extensions_menu.addSeparator()
 
         # Background Extensions section
         if natural_background_plugins:
