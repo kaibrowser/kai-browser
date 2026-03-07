@@ -75,8 +75,37 @@ class ModuleManagerModule(KaiModule):
                 subprocess.Popen(["open", str(modules_dir)])
                 print(f"Opening: {modules_dir}")
             else:
-                subprocess.Popen(["xdg-open", str(modules_dir)])
-                print(f"Opening: {modules_dir}")
+                launched = False
+                for fm in [
+                    "nautilus",
+                    "nemo",
+                    "dolphin",
+                    "pcmanfm",
+                    "caja",
+                    "krusader",
+                    "spacefm",
+                    "thunar",
+                ]:
+                    try:
+                        result = subprocess.run(["which", fm], capture_output=True)
+                        if result.returncode == 0:
+                            subprocess.Popen(
+                                [fm, str(modules_dir)],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                            )
+                            launched = True
+                            print(f"Opening with: {fm}")
+                            break
+                    except Exception:
+                        continue
+
+                if not launched:
+                    QMessageBox.information(
+                        self.browser_core,
+                        "Extensions Folder",
+                        f"Extensions folder location:\n\n{modules_dir}\n\nPlease navigate there manually.",
+                    )
 
             self.browser_core.show_status("📂 Opened extensions folder", 2000)
         except Exception as e:
