@@ -430,12 +430,15 @@ class DownloadsSidebar(QFrame):
         downloads_dir = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.DownloadLocation
         )
+        env = os.environ.copy()
+        env.pop("LD_LIBRARY_PATH", None)
+
         if sys.platform == "darwin":
-            subprocess.run(["open", downloads_dir])
+            subprocess.Popen(["open", downloads_dir], env=env)
         elif sys.platform == "win32":
-            subprocess.run(["explorer", downloads_dir])
+            subprocess.Popen(["explorer", downloads_dir], env=env)
         else:
-            subprocess.run(["xdg-open", downloads_dir])
+            subprocess.Popen(["xdg-open", downloads_dir], env=env)
 
 
 class DownloadsManager:
