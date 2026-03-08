@@ -82,17 +82,18 @@ class ModuleManagerModule(KaiModule):
                     "dolphin",
                     "pcmanfm",
                     "caja",
-                    "krusader",
-                    "spacefm",
                     "thunar",
                 ]:
                     try:
                         result = subprocess.run(["which", fm], capture_output=True)
                         if result.returncode == 0:
+                            env = os.environ.copy()
+                            env.pop("LD_LIBRARY_PATH", None)
                             subprocess.Popen(
                                 [fm, str(modules_dir)],
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL,
+                                env=env,
                             )
                             launched = True
                             print(f"Opening with: {fm}")
