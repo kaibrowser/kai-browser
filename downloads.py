@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QFileDialog,
     QMenu,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QStandardPaths
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
@@ -430,15 +431,55 @@ class DownloadsSidebar(QFrame):
         downloads_dir = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.DownloadLocation
         )
-        env = os.environ.copy()
-        env.pop("LD_LIBRARY_PATH", None)
+        print(f"open_downloads_folder called")
+        print(f"downloads_dir: {downloads_dir}")
 
-        if sys.platform == "darwin":
-            subprocess.Popen(["open", downloads_dir], env=env)
-        elif sys.platform == "win32":
-            subprocess.Popen(["explorer", downloads_dir], env=env)
-        else:
-            subprocess.Popen(["xdg-open", downloads_dir], env=env)
+        try:
+            if sys.platform == "win32":
+                os.startfile(downloads_dir)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", downloads_dir])
+            else:
+                launched = False
+                for fm in [
+                    "nautilus",
+                    "nemo",
+                    "dolphin",
+                    "pcmanfm",
+                    "caja",
+                    "thunar",
+                ]:
+                    try:
+                        result = subprocess.run(["which", fm], capture_output=True)
+                        if result.returncode == 0:
+                            env = os.environ.copy()
+                            env.pop("LD_LIBRARY_PATH", None)
+                            subprocess.Popen(
+                                [fm, downloads_dir],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                                env=env,
+                            )
+                            launched = True
+                            print(f"Opening with: {fm}")
+                            break
+                    except Exception:
+                        continue
+
+                if not launched:
+                    QMessageBox.information(
+                        self.browser,
+                        "Downloads Folder",
+                        f"Downloads folder location:\n\n{downloads_dir}\n\nPlease navigate there manually.",
+                    )
+
+            self.browser.show_status("📂 Opened downloads folder", 2000)
+        except Exception as e:
+            QMessageBox.warning(
+                self.browser,
+                "Error",
+                f"Failed to open folder:\n{downloads_dir}\n\n{e}",
+            )
 
 
 class DownloadsManager:
