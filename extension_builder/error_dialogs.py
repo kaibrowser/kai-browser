@@ -68,13 +68,74 @@ def get_frozen_python_version():
     return None
 
 
+def get_windows_embedded_python():
+    """
+    Check Windows registry for embedded Python path set by installer.
+    Returns: path string or None
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        import winreg
+
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\KaiBrowser")
+        value, _ = winreg.QueryValueEx(key, "EmbeddedPython")
+        winreg.CloseKey(key)
+        if value and os.path.isfile(value):
+            print(f"   🔍 Found embedded Python in registry: {value}")
+            return value
+    except Exception as e:
+        print(f"   ⚠ Registry lookup failed: {e}")
+    # Fallback: check relative to executable
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).parent
+        embedded = exe_dir / "python-embedded" / "python.exe"
+        if embedded.exists():
+            print(f"   🔍 Found embedded Python relative to exe: {embedded}")
+            return str(embedded)
+    return None
+
+
 def find_system_python():
     """
     Dynamically find a working Python with pip on the system.
-    Checks for bundled Python first (AppImage), then ABI-matched system Python.
+    Checks for bundled Python first (AppImage/Windows embedded), then ABI-matched system Python.
     Returns: python executable string or None
     """
-    # 1. Check for bundled Python set by AppRun
+    # 1. Check for Windows embedded Python from installer
+    win_embedded = get_windows_embedded_python()
+    if win_embedded:
+        try:
+            result = subprocess.run(
+                f'"{win_embedded}" -m pip --version',
+                capture_output=True,
+                text=True,
+                timeout=5,
+                shell=True,
+            )
+            if result.returncode == 0:
+                print(f"   ✅ Using Windows embedded Python: {win_embedded}")
+                print(f"      pip version: {result.stdout.strip()}")
+                return win_embedded
+            # pip.pyz fallback
+            pip_pyz = str(Path(win_embedded).parent / "pip.pyz")
+            if os.path.isfile(pip_pyz):
+                result = subprocess.run(
+                    f'"{win_embedded}" "{pip_pyz}" --version',
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    shell=True,
+                )
+                if result.returncode == 0:
+                    print(
+                        f"   ✅ Using Windows embedded Python with pip.pyz: {win_embedded}"
+                    )
+                    return win_embedded
+        except Exception as e:
+            print(f"   ⚠ Windows embedded Python failed: {e}")
+
+    # 2. Check for bundled Python set by AppRun
     bundled_python = os.environ.get("KAIBROWSER_PYTHON")
     if bundled_python and os.path.isfile(bundled_python):
         try:
@@ -248,7 +309,12 @@ def install_package(package_name, dependencies_dir):
             )
 
         print(f"   🚀 Running pip install (timeout: 300s)...")
-        cmd = f'"{python_exe}" -m pip install --target "{str(dependencies_dir)}" {pip_package}'
+        # Use pip.pyz if regular pip not available (Windows embedded Python)
+        pip_pyz = str(Path(python_exe).parent / "pip.pyz")
+        if os.path.isfile(pip_pyz):
+            cmd = f'"{python_exe}" "{pip_pyz}" install --target "{str(dependencies_dir)}" {pip_package}'
+        else:
+            cmd = f'"{python_exe}" -m pip install --target "{str(dependencies_dir)}" {pip_package}'
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=300, shell=True
         )

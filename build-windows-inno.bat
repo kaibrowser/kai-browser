@@ -4,6 +4,15 @@ echo =====================================
 echo   Kai Browser - Windows Installer Build
 echo =====================================
 echo.
+
+:: ── Config ────────────────────────────────────────────────
+set "PYTHON_VERSION=3.12.10"
+set "PYTHON_VERSION_SHORT=3.12"
+set "PYTHON_EMBED_URL=https://www.python.org/ftp/python/%PYTHON_VERSION%/python-%PYTHON_VERSION%-embed-amd64.zip"
+set "PYTHON_EMBED_ZIP=python-embed.zip"
+set "PYTHON_EMBED_DIR=python-embedded"
+set "PIP_URL=https://bootstrap.pypa.io/pip/pip.pyz"
+
 :: Activate venv
 if exist "venv\Scripts\activate.bat" (
     call venv\Scripts\activate.bat
@@ -11,6 +20,7 @@ if exist "venv\Scripts\activate.bat" (
     echo X Virtual environment not found. Run 'python kaibrowser.py' first to create it.
     exit /b 1
 )
+
 :: Get version from updater.py
 python -c "exec(open('updater.py').read().split('class')[0]); print(VERSION)" > _version.tmp
 set /p VERSION=<_version.tmp
@@ -22,6 +32,7 @@ if "%VERSION%"=="" (
 set "TAG=v%VERSION%"
 echo Version: %VERSION% (tag: %TAG%)
 echo.
+
 :: Check if tag already exists on remote
 git ls-remote --tags origin | findstr "refs/tags/%TAG%" >nul 2>&1
 if %errorlevel%==0 (
@@ -30,8 +41,44 @@ if %errorlevel%==0 (
 ) else (
     set "TAG_EXISTS=0"
 )
+
+:: ── Download embeddable Python ────────────────────────────
+echo Checking for embedded Python %PYTHON_VERSION%...
+if not exist "%PYTHON_EMBED_DIR%\python.exe" (
+    echo Downloading Python %PYTHON_VERSION% embeddable package...
+    if exist "%PYTHON_EMBED_ZIP%" del "%PYTHON_EMBED_ZIP%"
+    curl -L "%PYTHON_EMBED_URL%" -o "%PYTHON_EMBED_ZIP%"
+    if %errorlevel% neq 0 (
+        echo X Failed to download Python embeddable package
+        exit /b 1
+    )
+    if exist "%PYTHON_EMBED_DIR%" rmdir /s /q "%PYTHON_EMBED_DIR%"
+    mkdir "%PYTHON_EMBED_DIR%"
+    tar -xf "%PYTHON_EMBED_ZIP%" -C "%PYTHON_EMBED_DIR%"
+    del "%PYTHON_EMBED_ZIP%"
+
+    :: Download pip into embedded Python
+    echo Downloading pip...
+    curl -L "%PIP_URL%" -o "%PYTHON_EMBED_DIR%\pip.pyz"
+    if %errorlevel% neq 0 (
+        echo X Failed to download pip
+        exit /b 1
+    )
+
+    :: Enable site-packages in embedded Python by uncommenting import site
+    set "PTH_FILE=%PYTHON_EMBED_DIR%\python312._pth"
+    if exist "!PTH_FILE!" (
+        powershell -Command "(Get-Content '!PTH_FILE!') -replace '#import site', 'import site' | Set-Content '!PTH_FILE!'"
+        echo Enabled site-packages in embedded Python
+    )
+    echo Embedded Python ready
+) else (
+    echo Embedded Python already present
+)
+echo.
+
 :: Check Inno Setup is installed
-echo DEBUG: Checking Inno Setup...
+echo Checking Inno Setup...
 set "INNO=C:\PROGRA~2\InnoSetup6\ISCC.exe"
 if not exist "%INNO%" (
     set "INNO=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
@@ -41,14 +88,16 @@ if not exist "%INNO%" (
     echo   Download from: https://jrsoftware.org/isdl.php
     exit /b 1
 )
-echo DEBUG: Inno found at %INNO%
+echo Inno Setup found
+
 :: Install Nuitka if missing
 pip show nuitka >nul 2>&1
 if %errorlevel% neq 0 (
     echo Installing Nuitka...
     pip install nuitka zstandard
 )
-:: Compile
+
+:: ── Compile ───────────────────────────────────────────────
 echo Building with Nuitka...
 python -m nuitka ^
     --standalone ^
@@ -70,7 +119,8 @@ if %errorlevel% neq 0 (
 )
 echo Build complete
 echo.
-:: Copy files to dist
+
+:: ── Copy files to dist ────────────────────────────────────
 echo Copying files to dist...
 set "DIST_DIR=dist\launch_browser.dist"
 copy kai-browser_logo.png "%DIST_DIR%\" >nul 2>&1
@@ -78,9 +128,14 @@ copy DISCLAIMER.md "%DIST_DIR%\" >nul 2>&1
 copy README.md "%DIST_DIR%\" >nul 2>&1
 copy LICENSE.save "%DIST_DIR%\" >nul 2>&1
 copy TERMS_OF_SERVICE.md "%DIST_DIR%\" >nul 2>&1
+
+:: Copy embedded Python into dist
+echo Copying embedded Python into dist...
+xcopy /e /i /q "%PYTHON_EMBED_DIR%" "%DIST_DIR%\python-embedded\"
 echo Files copied
 echo.
-:: Generate Inno Setup script
+
+:: ── Generate Inno Setup script ────────────────────────────
 echo Generating installer script...
 set "ISS_FILE=installer.iss"
 (
@@ -123,12 +178,16 @@ echo Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 echo Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 echo Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 echo.
+echo [Registry]
+echo Root: HKCU; Subkey: "Software\KaiBrowser"; ValueType: string; ValueName: "EmbeddedPython"; ValueData: "{app}\python-embedded\python.exe"; Flags: createvalueifdoesntexist
+echo.
 echo [Run]
 echo Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 ) > "%ISS_FILE%"
 echo Generated installer.iss
 echo.
-:: Build installer
+
+:: ── Build installer ───────────────────────────────────────
 echo Building installer...
 "%INNO%" "%ISS_FILE%"
 if %errorlevel% neq 0 (
@@ -137,28 +196,51 @@ if %errorlevel% neq 0 (
 )
 echo Created kaibrowser-windows-setup.exe
 echo.
-:: Confirm release
+
+:: ── Confirm release ───────────────────────────────────────
 set /p "CONFIRM=Push tag %TAG% and create GitHub release? (y/n): "
 if /i not "%CONFIRM%"=="y" (
     echo Build complete. Installer ready but not released.
     exit /b 0
 )
-:: Tag, release and upload
-if "!TAG_EXISTS!"=="1" (
+
+:: ── Tag and release ───────────────────────────────────────
+gh release view %TAG% >nul 2>&1
+if %errorlevel%==0 (
+    set "RELEASE_EXISTS=1"
+) else (
+    set "RELEASE_EXISTS=0"
+)
+
+echo Tag exists: %TAG_EXISTS% ^| Release exists: %RELEASE_EXISTS%
+
+if "%TAG_EXISTS%"=="1" if "%RELEASE_EXISTS%"=="1" (
     echo Uploading to existing release %TAG%...
     gh release upload %TAG% kaibrowser-windows-setup.exe --clobber
-) else (
-    echo Creating tag %TAG%...
-    git tag %TAG%
-    git push origin %TAG%
-    echo Tag pushed
-    echo.
-    echo Creating GitHub release...
+    goto done
+)
+
+if "%TAG_EXISTS%"=="1" if "%RELEASE_EXISTS%"=="0" (
+    echo Creating release for existing tag %TAG%...
     gh release create %TAG% kaibrowser-windows-setup.exe ^
         --title "Kai Browser %TAG%" ^
         --notes "Kai Browser %VERSION% release" ^
         --latest
+    goto done
 )
+
+echo Creating tag %TAG%...
+git tag %TAG%
+git push origin %TAG%
+echo Tag pushed
+echo.
+echo Creating GitHub release...
+gh release create %TAG% kaibrowser-windows-setup.exe ^
+    --title "Kai Browser %TAG%" ^
+    --notes "Kai Browser %VERSION% release" ^
+    --latest
+
+:done
 echo Release updated
 echo.
 echo =====================================
