@@ -109,6 +109,7 @@ python -m nuitka ^
     --include-module=webdriver_manager ^
     --include-module=keyring ^
     --include-module=requests ^
+    --include-module=anthropic ^
     --output-dir=dist ^
     --output-filename=kaibrowser.exe ^
     --assume-yes-for-download ^

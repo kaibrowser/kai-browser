@@ -22,6 +22,7 @@ if not os.path.exists(venv_dir):
             "PyQt6-WebEngine",
             "keyring",
             "requests",
+            "anthropic",
         ],
         check=True,
     )

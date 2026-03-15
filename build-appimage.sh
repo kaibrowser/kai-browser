@@ -41,7 +41,7 @@ if [ ! -d "venv" ]; then
 fi
 source venv/bin/activate
 echo "→ Installing Python packages..."
-pip install -q pyinstaller PyQt6 selenium webdriver-manager PyQt6-WebEngine keyring requests
+pip install -q pyinstaller PyQt6 selenium webdriver-manager PyQt6-WebEngine keyring requests anthropic
 echo "✓ Python packages ready"
 echo ""
 
@@ -58,6 +58,7 @@ pyinstaller --onefile --windowed --name kaibrowser \
     --hidden-import=webdriver_manager \
     --hidden-import=keyring \
     --hidden-import=requests \
+    --hidden-import=anthropic \
     launch_browser.py
 echo "✓ Compile complete"
 echo ""

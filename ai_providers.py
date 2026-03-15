@@ -154,10 +154,11 @@ class GeminiProvider(AIProvider):
             return {"success": False, "error": error_msg}
 
 
+########################
+## Claude provider class new uses official SDK for better streaming support and reliability.08:35 14/03/26
+########################
 class ClaudeProvider(AIProvider):
-    """Anthropic Claude API with streaming"""
-
-    API_URL = "https://api.anthropic.com/v1/messages"
+    """Anthropic Claude API using official SDK - reliable streaming"""
 
     def __init__(self, api_key=None, model="claude-sonnet-4-6"):
         super().__init__(api_key)
@@ -168,86 +169,57 @@ class ClaudeProvider(AIProvider):
 
     def get_available_models(self) -> list:
         return [
+            ("claude-opus-4-6", "Claude Opus 4.6"),
             ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
             ("claude-opus-4-5-20251101", "Claude Opus 4.5"),
             ("claude-sonnet-4-5-20250929", "Claude Sonnet 4.5"),
-            ("claude-haiku-4-5-20251001", "Claude 4.5 Haiku"),
+            ("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
         ]
 
     def generate_module_stream(self, prompt: str, module_context: dict, callback):
-        """Stream generation with real-time chunks"""
         try:
-            if not self.api_key:
-                callback({"type": "error", "content": "No API key"})
-                return {"success": False, "error": "No API key"}
+            import anthropic
+        except ImportError:
+            callback(
+                {
+                    "type": "error",
+                    "content": "anthropic SDK not installed. Run: pip install anthropic",
+                }
+            )
+            return {"success": False, "error": "anthropic SDK not installed"}
 
+        if not self.api_key:
+            callback({"type": "error", "content": "No API key"})
+            return {"success": False, "error": "No API key"}
+
+        try:
             full_prompt = self._build_prompt(prompt, module_context)
-
-            headers = {
-                "x-api-key": self.api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            }
-
-            payload = {
-                "model": self.model,
-                "max_tokens": 32000,
-                "messages": [{"role": "user", "content": full_prompt}],
-                "stream": True,
-            }
+            client = anthropic.Anthropic(api_key=self.api_key)
 
             callback({"type": "start", "content": ""})
 
-            response = requests.post(
-                self.API_URL,
-                headers=headers,
-                json=payload,
-                stream=True,
-                timeout=(10, 30),
-            )
-
-            # FIXED: Only log status code, don't consume stream
-            print(f"Claude API Status: {response.status_code}")
-
-            if response.status_code != 200:
-                # Only read response body on error
-                error_text = response.text
-                error_msg = f"API error: {response.status_code} - {error_text}"
-                callback({"type": "error", "content": error_msg})
-                return {"success": False, "error": error_msg}
-
             full_code = ""
 
-            for line in response.iter_lines():
-                if line:
-                    line_text = line.decode("utf-8")
-
-                    if line_text.startswith("data: "):
-                        data_json = line_text[6:]
-
-                        if data_json.strip() == "[DONE]":
-                            continue
-
-                        try:
-                            data = json.loads(data_json)
-
-                            if data.get("type") == "content_block_delta":
-                                delta = data.get("delta", {})
-                                if delta.get("type") == "text_delta":
-                                    chunk = delta.get("text", "")
-                                    full_code += chunk
-                                    callback({"type": "chunk", "content": chunk})
-
-                        except json.JSONDecodeError:
-                            continue
+            with client.messages.stream(
+                model=self.model,
+                max_tokens=64000,
+                messages=[{"role": "user", "content": full_prompt}],
+            ) as stream:
+                for text in stream.text_stream:
+                    full_code += text
+                    callback({"type": "chunk", "content": text})
 
             callback({"type": "done", "content": ""})
             return {"success": True, "code": full_code}
 
         except Exception as e:
             error_msg = str(e)
+            print(f"Claude SDK error: {error_msg}")
             callback({"type": "error", "content": error_msg})
             return {"success": False, "error": error_msg}
+
+
+############################################
 
 
 class OpenAIProvider(AIProvider):

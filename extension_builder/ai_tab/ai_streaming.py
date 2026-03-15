@@ -414,7 +414,7 @@ class AIStreamingThread(QThread):
         self.provider = provider
         self.prompt = prompt
         self.context = context
-        self.timeout = timeout
+        self.timeout = 120  ##timeout
         self.max_retries = max_retries
         self.current_retry = 0
 
@@ -422,7 +422,7 @@ class AIStreamingThread(QThread):
         self.last_chunk_time = 0
         self.is_streaming = False
         self.total_tokens = 0
-        self.stall_threshold = 15
+        self.stall_threshold = 45  ##15
         self.should_stop = False
         self.generation_stopped = False
 
