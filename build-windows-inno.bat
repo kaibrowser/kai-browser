@@ -45,24 +45,45 @@ if %errorlevel%==0 (
 :: ── Download embeddable Python ────────────────────────────
 echo Checking for embedded Python %PYTHON_VERSION%...
 if not exist "%PYTHON_EMBED_DIR%\python.exe" (
-    echo Downloading Python %PYTHON_VERSION% embeddable package...
-    if exist "%PYTHON_EMBED_ZIP%" del "%PYTHON_EMBED_ZIP%"
-    curl -L "%PYTHON_EMBED_URL%" -o "%PYTHON_EMBED_ZIP%"
-    if %errorlevel% neq 0 (
-        echo X Failed to download Python embeddable package
-        exit /b 1
+
+    :: Check for local copy first
+    set "LOCAL_ZIP=build-deps\python-%PYTHON_VERSION%-embed-amd64.zip"
+    set "LOCAL_PIP=build-deps\pip.pyz"
+
+    if exist "!LOCAL_ZIP!" (
+        echo Using local Python embeddable package...
+        set "PYTHON_EMBED_ZIP=!LOCAL_ZIP!"
+    ) else (
+        echo Downloading Python %PYTHON_VERSION% embeddable package...
+        set "PYTHON_EMBED_ZIP=python-embed.zip"
+        if exist "!PYTHON_EMBED_ZIP!" del "!PYTHON_EMBED_ZIP!"
+        curl -L "%PYTHON_EMBED_URL%" -o "!PYTHON_EMBED_ZIP!"
+        if not exist "!PYTHON_EMBED_ZIP!" (
+            echo X Failed to download Python embeddable package
+            exit /b 1
+        )
     )
+
     if exist "%PYTHON_EMBED_DIR%" rmdir /s /q "%PYTHON_EMBED_DIR%"
     mkdir "%PYTHON_EMBED_DIR%"
-    tar -xf "%PYTHON_EMBED_ZIP%" -C "%PYTHON_EMBED_DIR%"
-    del "%PYTHON_EMBED_ZIP%"
+    tar -xf "!PYTHON_EMBED_ZIP!" -C "%PYTHON_EMBED_DIR%"
 
-    :: Download pip into embedded Python
-    echo Downloading pip...
-    curl -L "%PIP_URL%" -o "%PYTHON_EMBED_DIR%\pip.pyz"
-    if %errorlevel% neq 0 (
-        echo X Failed to download pip
-        exit /b 1
+    :: Clean up downloaded zip but not local one
+    if not exist "build-deps\python-%PYTHON_VERSION%-embed-amd64.zip" (
+        if exist "!PYTHON_EMBED_ZIP!" del "!PYTHON_EMBED_ZIP!"
+    )
+
+    :: Get pip
+    if exist "!LOCAL_PIP!" (
+        echo Using local pip.pyz...
+        copy "!LOCAL_PIP!" "%PYTHON_EMBED_DIR%\pip.pyz" >nul
+    ) else (
+        echo Downloading pip...
+        curl -L "%PIP_URL%" -o "%PYTHON_EMBED_DIR%\pip.pyz"
+        if not exist "%PYTHON_EMBED_DIR%\pip.pyz" (
+            echo X Failed to download pip
+            exit /b 1
+        )
     )
 
     :: Enable site-packages in embedded Python by uncommenting import site
