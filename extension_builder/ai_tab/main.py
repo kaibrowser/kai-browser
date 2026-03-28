@@ -614,6 +614,12 @@ class AIBuilderTab(QWidget):
 
         return input_frame
 
+    def _get_prompt_size(self):
+        """Get current prompt size from active thread context"""
+        if self.ai_thread and hasattr(self.ai_thread, "context"):
+            return len(str(self.ai_thread.context))
+        return 0
+
     def handle_send_button(self):
         """Handle send button click - either send or stop"""
         if self.send_btn.property("mode") == "send":
@@ -625,7 +631,21 @@ class AIBuilderTab(QWidget):
         """Stop AI generation"""
         if self.ai_thread and self.ai_thread.isRunning():
             self.ai_thread.stop()
-            self.ai_thread.wait()
+            if not self.ai_thread.wait(4000):
+                self.ai_thread.terminate()
+
+            if self.performance_monitor:
+                duration = time.time() - getattr(
+                    self, "generation_start_time", time.time()
+                )
+                self.performance_monitor.log_generation(
+                    request_text=getattr(self, "current_request", "Unknown"),
+                    success=False,
+                    duration_seconds=duration,
+                    error=Exception("Stopped by user"),
+                    prompt_size=self._get_prompt_size(),
+                    generated_code=self.code_preview.toPlainText() or None,
+                )
 
         self.progress_animation.stop()
         self.status_label.setText("⏹️ Stopped")
@@ -746,7 +766,7 @@ class AIBuilderTab(QWidget):
 
         # Create thread
         self.ai_thread = AIStreamingThread(
-            provider, message, context, timeout=30, max_retries=3
+            provider, message, context, timeout=60, max_retries=3
         )
 
         # Connect signals
@@ -814,27 +834,52 @@ class AIBuilderTab(QWidget):
         scrollbar = self.code_preview.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
+    # def on_ai_error(self, error_type, friendly_message, can_retry):
+    #     """Handle AI errors with user-friendly messages"""
+    #     self.progress_animation.stop()
+    #     self.status_label.setText(f"⚠️ {friendly_message}")
+
+    #     # Log the error
+    #     if self.performance_monitor:
+    #         duration = time.time() - getattr(self, "generation_start_time", time.time())
+    #         user_request = getattr(self, "current_request", "Unknown")
+
+    #         self.performance_monitor.log_generation(
+    #             request_text=user_request,
+    #             success=False,
+    #             duration_seconds=duration,
+    #             error=Exception(f"{error_type}: {friendly_message}"),
+    #             code_length=0,
+    #             prompt_size=0,
+    #         )
+
+    #     if not can_retry:
+    #         QMessageBox.warning(self, "Cannot Continue", friendly_message)
+
     def on_ai_error(self, error_type, friendly_message, can_retry):
-        """Handle AI errors with user-friendly messages"""
         self.progress_animation.stop()
         self.status_label.setText(f"⚠️ {friendly_message}")
 
-        # Log the error
         if self.performance_monitor:
             duration = time.time() - getattr(self, "generation_start_time", time.time())
-            user_request = getattr(self, "current_request", "Unknown")
-
             self.performance_monitor.log_generation(
-                request_text=user_request,
+                request_text=getattr(self, "current_request", "Unknown"),
                 success=False,
                 duration_seconds=duration,
                 error=Exception(f"{error_type}: {friendly_message}"),
                 code_length=0,
-                prompt_size=0,
+                prompt_size=self._get_prompt_size(),
             )
 
-        if not can_retry:
-            QMessageBox.warning(self, "Cannot Continue", friendly_message)
+        now = time.time()
+        last_error = getattr(self, "_last_error_msg", "")
+        last_error_time = getattr(self, "_last_error_time", 0)
+
+        if friendly_message != last_error or (now - last_error_time) > 10:
+            self._last_error_msg = friendly_message
+            self._last_error_time = now
+            if not can_retry:
+                QMessageBox.warning(self, "Cannot Continue", friendly_message)
 
     def on_retry_attempt(self, current, maximum):
         """Handle retry attempts"""
@@ -846,18 +891,10 @@ class AIBuilderTab(QWidget):
         self.progress_animation.stop()
         self.set_send_button_mode("send")
 
-        # Log performance data
         if self.performance_monitor and self.ai_thread:
-            stats = self.ai_thread.get_stats()
-
-            # Calculate actual duration
             duration = time.time() - getattr(self, "generation_start_time", time.time())
-
-            # Get user's original request from message input or history
-            user_request = getattr(self, "current_request", "Unknown")
-
             self.performance_monitor.log_generation(
-                request_text=user_request or "Unknown",
+                request_text=getattr(self, "current_request", "Unknown"),
                 success=result.get("success", False),
                 duration_seconds=duration,
                 error=(
@@ -866,11 +903,9 @@ class AIBuilderTab(QWidget):
                     else Exception(result.get("error", "Unknown error"))
                 ),
                 code_length=len(result.get("code", "")),
-                prompt_size=(
-                    len(str(self.ai_thread.context))
-                    if hasattr(self.ai_thread, "context")
-                    else 0
-                ),
+                prompt_size=self._get_prompt_size(),
+                chat_response=result.get("chat") or None,
+                generated_code=result.get("code") or None,
             )
 
         if result.get("code"):
@@ -880,10 +915,8 @@ class AIBuilderTab(QWidget):
             self.save_btn.setEnabled(True)
             self.status_label.setText("✅ Done!")
 
-            # Store pending packages for installation
             self.pending_packages = result.get("packages_to_install", [])
 
-            # Add code generation to history
             self.code_manager.add_to_history(
                 "assistant",
                 "Code generated",
@@ -892,17 +925,14 @@ class AIBuilderTab(QWidget):
                 type="code",
             )
 
-            # Show completion indicator in chat if no chat message was received
             if not result.get("chat"):
                 self.chat_display.add_assistant_message(
                     "✅ Code generated successfully!"
                 )
 
-            # Show requirements info in chat
             if result.get("requirements"):
-                # Format based on whether packages need installing
                 if self.pending_packages:
-                    req_text = f"📦 **Packages to install:**\n"
+                    req_text = "📦 **Packages to install:**\n"
                     for pkg in self.pending_packages:
                         req_text += f"  • {pkg}\n"
                     req_text += "\nClick 'Add Extension' to install and activate."
@@ -971,6 +1001,23 @@ class AIBuilderTab(QWidget):
 
     def on_save_error(self, filename, error_info):
         """Handle save error"""
+        # Log load error against the most recent generation attempt
+        if self.performance_monitor:
+            load_err_text = (
+                f"{error_info.get('type', 'Error')}: {error_info.get('message', '')}"
+            )
+            if error_info.get("traceback"):
+                load_err_text += f"\n{error_info['traceback']}"
+            duration = time.time() - getattr(self, "generation_start_time", time.time())
+            user_request = getattr(self, "current_request", "Unknown")
+            self.performance_monitor.log_generation(
+                request_text=user_request or "Unknown",
+                success=False,
+                duration_seconds=duration,
+                generated_code=self.code_preview.toPlainText() or None,
+                load_error=load_err_text,
+            )
+
         if filename is None:
             self.error_handler.handle_syntax_error(
                 error_info["message"],
@@ -1024,7 +1071,7 @@ class AIBuilderTab(QWidget):
             self.ai_thread.wait()
 
         self.ai_thread = AIStreamingThread(
-            provider, fix_prompt, context, timeout=30, max_retries=3
+            provider, fix_prompt, context, timeout=60, max_retries=3
         )
         self.ai_thread.progress.connect(self.on_progress_update)
         self.ai_thread.chunk.connect(self.on_code_chunk)

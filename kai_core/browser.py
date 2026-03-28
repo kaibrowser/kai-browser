@@ -37,6 +37,25 @@ from zoom_controls import setup_zoom
 from context_menu import setup_context_menu
 from tab_context_menu import setup_tab_context_menu
 
+########## this is a ai-natural api compatibility hack###########
+from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
+
+QNetworkReply.KnownHeaders = QNetworkRequest.KnownHeaders
+from PyQt6.QtWebEngineCore import QWebEnginePage
+
+_original_title = QWebEnginePage.title
+
+
+def _title_compat(self, callback=None):
+    result = _original_title(self)
+    if callback:
+        callback(result)
+    return result
+
+
+QWebEnginePage.title = _title_compat
+#################################################################
+
 
 class KaiBrowser(QMainWindow):
     """

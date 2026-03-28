@@ -1,210 +1,139 @@
 """
-AI Examples - Optimized Context-Aware Prompt Building
-Reduced prompt size by consolidating shared sections
-Updated: Added data persistence pattern to REFERENCE example
+AI Examples - Lean prompt building
+Instructions-only approach with minimal structural skeleton
 """
 
 
 class AIExamples:
-    """Context-aware prompt building for AI code generation"""
 
-    REFERENCE = """from PyQt6.QtCore import QUrl
-from PyQt6.QtWidgets import QToolButton, QMenu
-from PyQt6.QtGui import QAction
-import json
-from pathlib import Path
-
-class ExamplePlugin:
+    SKELETON = """
+class PluginName:
     def __init__(self, browser):
         self.browser = browser
-        self.toolbar = browser.toolbar
-        
-        # Data persistence - organized location
-        data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
-        data_dir.mkdir(parents=True, exist_ok=True)
-        self.data_file = data_dir / "data.json"
-        
-        # Load saved data
-        self.counter = self.load_data()
-    
+        # Optional persistence:
+        # data_dir = Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
+        # data_dir.mkdir(parents=True, exist_ok=True)
+        # self.data_file = data_dir / "data.json"
+
     def activate(self):
-        button = QToolButton()
-        button.setText("🎯 Example")
-        button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        
+        btn = QToolButton()
+        btn.setText("Label")
+        btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu()
-        increment_action = QAction("Increment", menu)
-        increment_action.triggered.connect(self.increment)
-        menu.addAction(increment_action)
-        
-        status_action = QAction(f"Count: {self.counter}", menu)
-        status_action.setEnabled(False)
-        menu.addAction(status_action)
-        
-        button.setMenu(menu)
-        self.toolbar.addWidget(button)
-    
-    def increment(self):
-        self.counter += 1
-        self.save_data()  # Save after change
+        action = QAction("Item", menu)
+        action.triggered.connect(self.on_action)
+        menu.addAction(action)
+        btn.setMenu(menu)
+        self.browser.toolbar.addWidget(btn)
+
+    def on_action(self):
         web_view = self.browser.get_active_web_view()
-        url = web_view.url().toString() if web_view else "No tab"
-        print(f"Counter: {self.counter}, URL: {url}")
-    
+        if not web_view:
+            return
+
+    # Correct persistence pattern:
     def load_data(self):
         if self.data_file.exists():
-            with open(self.data_file, encoding='utf-8') as f:
-                return json.load(f).get('counter', 0)
-        return 0
+            with open(self.data_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {}
 
-    def save_data(self):
+    def save_data(self, data):
         with open(self.data_file, 'w', encoding='utf-8') as f:
-            json.dump({'counter': self.counter}, f, indent=2)
-    """
+            json.dump(data, f, indent=2)
+        # NOTE: encoding='utf-8' belongs on open() only, never on json.dump()
+"""
 
-    # Consolidated shared context - used in all prompts
-    SHARED_CONTEXT = """BROWSER API:
-- browser.toolbar (QToolBar), browser.get_active_web_view() (QWebEngineView)
-- Current tab's URL: browser.get_active_web_view().url().toString()
+    PLUGIN_RULES = """PLUGIN RULES:
+- Class with __init__(self, browser) and activate(self) methods
+- browser.toolbar = QToolBar, browser.get_active_web_view() = QWebEngineView
 - Navigate: browser.get_active_web_view().setUrl(QUrl(url))
-- Access current page: web_view = browser.get_active_web_view()
-- Tab awareness: Always use get_active_web_view() not browser.web_view
+- Always use get_active_web_view(), never browser.web_view directly
+- Data persistence: Path.home() / "kaibrowser" / "extensions" / ClassName / "data.json"
+- NEVER create folders outside of this path (no ~/kaibrowser/archives, ~/kaibrowser/data etc)
+- encoding='utf-8' goes on open() only — never pass it to json.dump()
 
-PLUGIN STRUCTURE:
-- __init__(self, browser) and activate() method
-- Use standard PyQt6 APIs (QToolButton, QMenu, QAction)
+CRITICAL PYQT6:
+- QAction → PyQt6.QtGui (NOT QtWidgets)
+- QToolButton.ToolButtonPopupMode.InstantPopup
+- QMessageBox.StandardButton.Yes
+- QWebEngineDownloadRequest → QtWebEngineCore
+- Never bare except: pass — let errors bubble up
+- QThread.run() MUST emit errors via a signal — never swallow them silently:
+  error = pyqtSignal(str)  # define on the class
+  def run(self): ... except Exception as e: self.error.emit(str(e))
+- Never wrap signal-connected methods (on_finished, on_result etc) in try/except — errors there are invisible to the browser's error detection system
 
-DATA PERSISTENCE (Optional):
-- Save to: Path.home() / "kaibrowser" / "extensions" / self.__class__.__name__
-- Use standard json.dump() and json.load()
-- ALWAYS use encoding='utf-8' when opening files (required for Windows)
-- See REFERENCE example for pattern
-
-CRITICAL PyQt6 SYNTAX:
-- QAction is in PyQt6.QtGui NOT PyQt6.QtWidgets (common error!)
-- QToolButton.ToolButtonPopupMode.InstantPopup (NOT PopupMode.InstantPopup)
-- QMessageBox.StandardButton.Yes (NOT StandardButton.Yes)
-- download.isFinished() not download.finished
-- Qt enums from QtCore (Qt.AlignmentFlag, etc.)
-- QWebEngineDownloadRequest from QtWebEngineCore
-
-ERROR HANDLING:
-- NEVER use bare try/except that silently swallows errors with 'pass'
-- For input validation, check values explicitly before using them
-- Example: if not text or float(text) <= 0: return  # Good
-- Example: try: calculate() except: pass  # BAD - hides real errors
-- Let errors bubble up so the browser can catch and report them
-- The browser has auto-detection that will offer to fix real errors
-
-BUNDLED: PyQt6 (no install needed)
-
-OUTPUT FORMAT - EXACT STRUCTURE REQUIRED:
+OUTPUT FORMAT:
 [CHAT]
-Brief response (2-3 sentences) - explain what you built/changed
+2-3 sentences explaining what you built or changed
 [/CHAT]
-
 [CODE]
-Raw Python code only, no markdown
+Raw Python only, no markdown fences
 [/CODE]
-
 [REQUIREMENTS]
-📦 pip install package-name (for non-bundled packages, one per line)
-✅ No installation needed - uses only bundled packages
-🌐 Requires internet connection (if needed)
+📦 pip install package-name
+✅ No installation needed
 [/REQUIREMENTS]"""
 
     @classmethod
     def build_prompt(cls, user_request: str, module_context: dict = None) -> str:
-        """Build context-aware prompt for new generation or modifications"""
         if module_context is None:
             module_context = {}
-
-        is_fix = module_context.get("is_fix_request", False)
-        is_modification = module_context.get("is_modification_request", False)
-        current_code = module_context.get("current_code", "")
-
-        if is_fix:
-            return cls._build_fix_prompt(user_request, module_context)
-        elif is_modification and current_code:
-            return cls._build_modification_prompt(user_request, module_context)
+        if module_context.get("is_fix_request"):
+            return cls._fix_prompt(user_request, module_context)
+        elif module_context.get("is_modification_request") and module_context.get(
+            "current_code"
+        ):
+            return cls._modify_prompt(user_request, module_context)
         else:
-            return cls._build_new_prompt(user_request, module_context)
+            return cls._new_prompt(user_request)
 
     @classmethod
-    def _build_new_prompt(cls, user_request: str, context: dict) -> str:
-        """Prompt for new extension"""
-        return f"""You are a friendly AI assistant creating browser plugins using PyQt6.
+    def _new_prompt(cls, user_request: str) -> str:
+        return f"""Create a KaiBrowser PyQt6 plugin.
 
-{cls.SHARED_CONTEXT}
-
-REFERENCE EXAMPLE:
-{cls.REFERENCE}
-
-USER REQUEST: {user_request}
-
-Be conversational in [CHAT], prefer bundled packages, use 📦 pip install format for others."""
+SKELETON (follow this structure):
+{cls.SKELETON}
+{cls.PLUGIN_RULES}
+REQUEST: {user_request}"""
 
     @classmethod
-    def _build_modification_prompt(cls, user_request: str, context: dict) -> str:
-        """Prompt for modifying existing code"""
+    def _modify_prompt(cls, user_request: str, context: dict) -> str:
         current_code = context.get("current_code", "")
-        conversation_history = context.get("conversation_history", [])
-
+        history = context.get("conversation_history", [])
         history_text = ""
-        if conversation_history:
-            history_text = "\n\nPREVIOUS CONTEXT:\n"
-            for msg in conversation_history[-5:]:
-                role = msg.get("role", "unknown")
-                content = msg.get("content", "")[:150]
-                history_text += f"{role.upper()}: {content}\n"
+        if history:
+            history_text = "\nCONTEXT:\n"
+            for msg in history[-3:]:
+                history_text += (
+                    f"{msg.get('role','').upper()}: {msg.get('content','')[:100]}\n"
+                )
 
-        return f"""You are a friendly AI assistant MODIFYING an existing browser plugin.
-
-CRITICAL: Modify the code below - don't create new from scratch.
+        return f"""Modify this KaiBrowser plugin. Keep all existing functionality, only apply requested changes.
 
 EXISTING CODE:
-```python
 {current_code}
-```{history_text}
-
-NEW REQUEST: {user_request}
-
-INSTRUCTIONS:
-1. Take existing code above
-2. Apply ONLY requested changes
-3. Keep all existing functionality
-4. Maintain same class name/structure
-
-{cls.SHARED_CONTEXT}
-
-In [CHAT] explain what changed. Start with [CHAT] section."""
+{history_text}
+SKELETON (for reference on correct patterns):
+{cls.SKELETON}
+{cls.PLUGIN_RULES}
+CHANGE REQUEST: {user_request}"""
 
     @classmethod
-    def _build_fix_prompt(cls, user_request: str, context: dict) -> str:
-        """Prompt for fixing errors"""
+    def _fix_prompt(cls, user_request: str, context: dict) -> str:
         failed_code = context.get("failed_code", context.get("current_code", ""))
-        error_context = context.get("error_context", "Unknown error")
+        error = context.get("error_context", "Unknown error")
 
-        return f"""You are a friendly AI assistant FIXING a broken browser plugin.
+        return f"""Fix this broken KaiBrowser plugin.
 
 BROKEN CODE:
-```python
 {failed_code}
-```
 
-ERROR: {error_context}
+ERROR: {error}
 
-TASK: Analyze error, fix code, maintain functionality, return corrected version.
+SKELETON (for reference on correct patterns):
+{cls.SKELETON}
+FIX APPROACH: Prefer simple fixes. For Qt lifecycle errors just recreate the object with parent=. Trust Qt's parent ownership system.
 
-COMMON FIXES: Missing imports, syntax (indentation/quotes), attribute errors, type errors
-
-FIX PHILOSOPHY - PREFER SIMPLE SOLUTIONS:
-- For Qt object lifecycle errors (QMenu/QWidget deleted): Just recreate the object with proper parent, don't add validity checks
-- Trust Qt's parent ownership system - adding parent= is usually enough
-- Avoid defensive try/except blocks for lifecycle issues
-- Don't check if objects are valid before recreating them - just recreate
-- Example: Instead of checking "if menu exists", just do "self.menu = QMenu(parent)"
-
-{cls.SHARED_CONTEXT}
-
-In [CHAT] explain what was wrong and how you fixed it. Start with [CHAT] section."""
+{cls.PLUGIN_RULES}"""

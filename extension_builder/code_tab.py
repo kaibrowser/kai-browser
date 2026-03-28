@@ -323,12 +323,10 @@ class CodeEditorTab(QWidget):
         if success:
             self.loader.refresh_module_manager()
             self.browser_core.show_status(f"✅ {filename} loaded!", 3000)
-
             self.validation_label.setText(f"✅ Extension loaded successfully!")
             self.validation_label.setStyleSheet(
                 "color: #28a745; font-weight: bold; padding: 5px;"
             )
-
             QMessageBox.information(
                 self,
                 "Success",
@@ -337,17 +335,26 @@ class CodeEditorTab(QWidget):
                 "Check the toolbar for your extension.",
             )
         else:
+            # Log to performance monitor if available
+            for module in self.browser_core.modules:
+                if module.__class__.__name__ == "AIPerformanceMonitor":
+                    module.log_load_error(
+                        module_name=filename,
+                        error_type=error_info["type"],
+                        error_message=error_info["message"],
+                        traceback_text=error_info.get("traceback", ""),
+                    )
+                    break
+
             # Show friendly error dialog with AI fix option or Install Package
             friendly = friendly_name(filename)
             user_msg = get_friendly_error_message(
                 error_info["type"], error_info["message"]
             )
-
             self.validation_label.setText(
                 f"❌ Load Error: {error_info['message'][:100]}"
             )
             self.validation_label.setStyleSheet("color: #dc3545; padding: 5px;")
-
             self._show_error_dialog(
                 f"{friendly} failed to load",
                 user_msg,

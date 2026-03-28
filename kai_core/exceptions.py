@@ -57,12 +57,25 @@ class ExceptionHandler:
         self._disabled_modules = set()
         self._last_error_time = {}
 
+    def _get_performance_monitor(self):
+        """Find AIPerformanceMonitor in loaded modules if available"""
+        for module in self.browser.modules:
+            if module.__class__.__name__ == "AIPerformanceMonitor":
+                return module
+        return None
+
     def install(self):
         """Install global Qt exception handler to catch ALL errors"""
         self._original_excepthook = sys.excepthook
 
         def global_exception_handler(exc_type, exc_value, exc_traceback):
             """Catch ALL uncaught exceptions"""
+
+            if issubclass(exc_type, KeyboardInterrupt):
+                if self._original_excepthook:
+                    self._original_excepthook(exc_type, exc_value, exc_traceback)
+                return
+
             error_info = {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "error_type": exc_type.__name__,
@@ -201,6 +214,17 @@ class ExceptionHandler:
                 print(f"   Missing Package: {missing_package}")
             else:
                 print(f"   Not an import error, skipping package extraction")
+
+            # Log to performance monitor if available
+            monitor = self._get_performance_monitor()
+            if monitor:
+                monitor.log_runtime_error(
+                    module_name=error_info.get("friendly_name")
+                    or error_info.get("module_name", "Unknown"),
+                    error_type=error_info.get("error_type", "Unknown"),
+                    error_message=error_info.get("error_message", ""),
+                    traceback_text=error_info.get("traceback", ""),
+                )
 
             msg = ClosableMessageBox(self.browser)
             msg.setWindowTitle("Extension Error")
